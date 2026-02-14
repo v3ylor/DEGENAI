@@ -5,24 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>$DEGENAGENT | SYSTEM ROOT</title>
     <style>
-        #ticker-feed {
+        /* Ticker Feed Styles */
+#ticker-feed {
     font-family: 'Courier New', monospace;
-    font-size: 14px;
-    height: 300px; /* Taller box to show more trades */
-    overflow-y: hidden; /* Hide scrollbar */
+    font-size: 13px;
+    background: rgba(0, 20, 0, 0.3);
+    border: 1px solid #333;
+    padding: 10px;
+    margin-top: 10px;
+    
+    /* SCROLLING ENABLED */
+    height: 400px;           /* Fixed height */
+    overflow-y: auto;        /* Scrollbar appears when full */
     display: flex;
-    flex-direction: column-reverse; /* Stack from bottom */
+    flex-direction: column;  /* Newest at top */
 }
+
+/* Custom Hacker Scrollbar */
+#ticker-feed::-webkit-scrollbar { width: 8px; }
+#ticker-feed::-webkit-scrollbar-track { background: #000; }
+#ticker-feed::-webkit-scrollbar-thumb { background: #00ff41; border-radius: 4px; }
 
 .ticker-item {
-    padding: 4px 0;
+    padding: 6px 0;
     border-bottom: 1px solid rgba(0, 255, 65, 0.1);
-    animation: fadeIn 0.3s ease-in;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateX(-10px); }
-    to { opacity: 1; transform: translateX(0); }
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
         /* --- SYSTEM KERNEL (GLOBAL) --- */
         :root {
@@ -511,15 +520,13 @@
         cliOutput.scrollTop = cliOutput.scrollHeight;
     }
 
-        /* --- REAL LIVE TICKER FEED (ANIMATED) --- */
+        /* --- REAL LIVE TICKER FEED (SCROLLABLE HISTORY) --- */
         const ticker = document.getElementById('ticker-feed');
-        const CA = "Dt7rNPRfpmf4P8QvWQgyh5S7pnp4nQWYUmUwrarwpump"; // Token Address
+        const CA = "Dt7rNPRfpmf4P8QvWQgyh5S7pnp4nQWYUmUwrarwpump"; 
         let knownSig = new Set();
-        let tradeQueue = []; // Queue to animate trades smoothly
 
         async function startLiveFeed() {
             try {
-                // 1. Get Pool Address
                 const dexResponse = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${CA}`);
                 const dexData = await dexResponse.json();
                 
@@ -531,12 +538,12 @@
                 const pair = dexData.pairs[0];
                 const poolAddress = pair.pairAddress;
                 
-                // 2. Start Polling
-                fetchTrades(poolAddress);
-                setInterval(() => fetchTrades(poolAddress), 10000); // Check every 10s
+                console.log("Monitoring Pool:", poolAddress);
 
-                // 3. Start Animation Loop (Processes the queue)
-                processQueue();
+                // Initial fetch
+                fetchTrades(poolAddress);
+                // Poll every 8 seconds
+                setInterval(() => fetchTrades(poolAddress), 8000);
 
             } catch (e) {
                 console.error("Feed Error:", e);
@@ -551,45 +558,43 @@
                 const json = await res.json();
                 const trades = json.data;
 
-                // Process trades (Newest is first in API, so we reverse to playback history)
+                // Process trades (Gecko sends newest first)
+                // We reverse them to add older ones first if we are filling the list
                 trades.reverse().forEach(trade => {
                     const attr = trade.attributes;
                     const txHash = attr.tx_hash;
 
                     if (!knownSig.has(txHash)) {
                         knownSig.add(txHash);
-                        
-                        // Clean memory
-                        if(knownSig.size > 1000) knownSig.clear();
+                        if(knownSig.size > 2000) knownSig.clear();
 
-                        // Parse Data safely to avoid NaN
                         const type = attr.kind; 
                         const isBuy = type === "buy";
                         
-                        // Safe Volume Check
-                        let volume = parseFloat(attr.volume_in_usd);
-                        if (isNaN(volume)) volume = 0;
-
-                        // Safe Token Amount Check
-                        let tokenAmt = parseFloat(isBuy ? attr.to_token_amount : attr.from_token_amount);
-                        if (isNaN(tokenAmt) || tokenAmt === 0) tokenAmt = 1;
-
-                        // Calculate Price manually to avoid NaN
-                        let price = volume / tokenAmt;
-                        if (price < 0.000001) {
-                            price = price.toFixed(9);
-                        } else {
-                            price = price.toFixed(6);
+                        // --- FIX FOR NAN PRICE ---
+                        // 1. Try direct price from API
+                        let price = parseFloat(attr.price_to_usd || attr.price_usd);
+                        
+                        // 2. If invalid, calculate from Volume / Amount
+                        if (!price || isNaN(price)) {
+                            const vol = parseFloat(attr.volume_in_usd);
+                            const amt = parseFloat(isBuy ? attr.to_token_amount : attr.from_token_amount);
+                            if (vol > 0 && amt > 0) {
+                                price = vol / amt;
+                            } else {
+                                price = 0; // Fallback
+                            }
                         }
 
-                        // Push to queue for animation
-                        tradeQueue.push({
-                            wallet: txHash.slice(0, 4) + "..." + txHash.slice(-4),
-                            action: isBuy ? "BOUGHT" : "SOLD",
-                            amount: `$${volume.toFixed(2)}`,
-                            price: `@ $${price}`,
-                            color: isBuy ? "var(--neon-green)" : "var(--neon-red)"
-                        });
+                        // Formatting
+                        const finalPrice = price < 0.01 ? price.toFixed(8) : price.toFixed(4);
+                        const volume = parseFloat(attr.volume_in_usd).toFixed(2);
+                        
+                        const wallet = txHash.slice(0, 4) + "..." + txHash.slice(-4);
+                        const action = isBuy ? "BOUGHT" : "SOLD";
+                        const color = isBuy ? "#00ff41" : "#ff0033"; // Bright Green / Red
+
+                        addTickerItem(wallet, `${action} $${volume}`, color, `@ $${finalPrice}`);
                     }
                 });
 
@@ -598,32 +603,20 @@
             }
         }
 
-        // Animates trades appearing one by one
-        function processQueue() {
-            if (tradeQueue.length > 0) {
-                const trade = tradeQueue.shift(); // Get next trade
-                addTickerItem(trade.wallet, `${trade.action} ${trade.amount}`, trade.color, trade.price);
-            }
-
-            // Random delay between 100ms and 800ms to feel "organic"
-            const delay = Math.random() * 700 + 100;
-            setTimeout(processQueue, delay);
-        }
-
         function addTickerItem(id, actionText, color, metaText = "") {
             const div = document.createElement('div');
             div.className = 'ticker-item';
-            div.style.borderLeft = `3px solid ${color}`; // Add a colored bar
             div.innerHTML = `
-                <span style="opacity:0.5; font-size: 0.8em;">${id}</span> 
-                <span style="color:${color}; font-weight:bold; margin:0 8px;">${actionText}</span> 
-                <span style="opacity:0.6; font-size: 0.8em;">${metaText}</span>
+                <div style="width: 80px; opacity:0.6;">${id}</div>
+                <div style="flex-grow:1; text-align:left; color:${color}; font-weight:bold;">${actionText}</div>
+                <div style="width: 100px; text-align:right; opacity:0.8;">${metaText}</div>
             `;
             
+            // PREPEND adds to the TOP (Newest First)
             ticker.prepend(div);
             
-            // Increase history limit to 50
-            if(ticker.children.length > 50) {
+            // Limit history to 500 items (Scrollable)
+            if(ticker.children.length > 500) {
                 ticker.lastChild.remove();
             }
         }
