@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>$DEGENAGENT | SYSTEM ROOT</title>
+    <style>
+        /* --- SYSTEM KERNEL (GLOBAL) --- */
+        :root {
+            --neon-green: #0f0;
+            --neon-dim: #004400;
+            --neon-red: #ff003c;
+            --neon-blue: #00f3ff;
+            --neon-yellow: #ffee00;
+            --bg-color: #050505;
+            --panel-bg: rgba(10, 10, 10, 0.95);
+            --border-color: #333;
+            --font-main: 'Courier New', monospace;
+            --scan-speed: 8s;
+        }
+
+        * { box-sizing: border-box; user-select: none; cursor: crosshair; }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--neon-green);
+            font-family: var(--font-main);
+            overflow: hidden; /* App-like feel */
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- CRT OVERLAY FX --- */
+        .crt-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+                        linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 2px, 3px 100%;
+            pointer-events: none; z-index: 9999;
+        }
+        .scanline {
+            width: 100%; height: 100px; z-index: 9998;
+            background: linear-gradient(0deg, rgba(0,0,0,0) 0%, rgba(0, 255, 0, 0.1) 50%, rgba(0,0,0,0) 100%);
+            opacity: 0.1; position: absolute; bottom: 100%;
+            animation: scanline 10s linear infinite; pointer-events: none;
+        }
+        @keyframes scanline { 0% { bottom: 100%; } 100% { bottom: -100%; } }
+
+        /* --- BACKGROUND CANVAS --- */
+        #matrix-bg { position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.2; }
+
+        /* --- LAYOUT GRID --- */
+        .app-container {
+            display: grid;
+            grid-template-rows: 60px 1fr 40px;
+            height: 100vh;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+            border-left: 1px solid var(--neon-dim);
+            border-right: 1px solid var(--neon-dim);
+            position: relative;
+            z-index: 10;
+        }
+
+        /* --- NAVIGATION (TABS) --- */
+        nav {
+            display: flex;
+            border-bottom: 2px solid var(--neon-green);
+            background: rgba(0,0,0,0.8);
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+        }
+        .nav-brand { font-weight: bold; font-size: 1.5rem; text-shadow: 0 0 10px var(--neon-green); animation: flicker 3s infinite; }
+        .nav-tabs { display: flex; gap: 2px; height: 100%; }
+        .tab {
+            padding: 0 30px;
+            display: flex;
+            align-items: center;
+            border-left: 1px solid var(--neon-dim);
+            border-right: 1px solid var(--neon-dim);
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            background: #000;
+        }
+        .tab:hover { background: var(--neon-dim); color: #fff; }
+        .tab.active {
+            background: var(--neon-green);
+            color: #000;
+            font-weight: bold;
+            box-shadow: 0 0 20px var(--neon-green);
+        }
+        .tab-status { font-size: 0.7rem; margin-left: 8px; opacity: 0.7; }
+
+        /* --- CONTENT PAGES --- */
+        main {
+            position: relative;
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        .page {
+            display: none; /* Hidden by default */
+            height: 100%;
+            overflow-y: auto;
+            animation: slideIn 0.3s ease-out;
+            padding-bottom: 50px;
+        }
+        .page.active { display: block; }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- PAGE 1: DASHBOARD (HOME) --- */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            height: 100%;
+        }
+        .hero-panel {
+            border: 1px solid var(--neon-green);
+            background: rgba(0, 10, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            position: relative;
+        }
+        .agent-model {
+            width: 180px; /* Adjust this number to make logo bigger/smaller */
+            height: auto;
+            margin-bottom: 20px;
+            animation: float 4s ease-in-out infinite;
+            filter: drop-shadow(0 0 15px var(--neon-green));
+        }
+        .hero-title { font-size: 3rem; line-height: 1; margin: 20px 0; text-transform: uppercase; }
+        .ticker-panel {
+            border: 1px solid var(--border-color);
+            background: rgba(0,0,0,0.6);
+            padding: 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .ticker-header { border-bottom: 1px dashed var(--neon-green); padding-bottom: 5px; margin-bottom: 10px; color: var(--neon-blue); }
+        .ticker-item { font-size: 0.8rem; margin-bottom: 8px; border-bottom: 1px solid #111; padding-bottom: 2px; }
+
+        /* --- PAGE 2: TRAINING (UTILITY) --- */
+        .terminal-window {
+            border: 2px solid var(--neon-green);
+            background: #000;
+            padding: 20px;
+            max-width: 800px;
+            margin: 20px auto;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.1);
+        }
+        .cli-output { height: 300px; overflow-y: auto; color: #ccc; margin-bottom: 20px; font-size: 0.9rem; border-bottom: 1px dashed #333; }
+        .cli-input-line { display: flex; align-items: center; }
+        .cli-input { background: transparent; border: none; color: var(--neon-green); width: 100%; font-family: inherit; font-size: 1.1rem; outline: none; margin-left: 10px; }
+        .leaderboard { margin-top: 40px; border-top: 2px solid var(--neon-red); padding-top: 20px; }
+        .leaderboard h2 { color: var(--neon-red); text-transform: uppercase; }
+        .lb-row { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #222; }
+        .lb-row:hover { background: #111; }
+
+        /* --- PAGE 3: DATA (TOKENOMICS) --- */
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        .stat-card { border: 1px solid #333; padding: 20px; position: relative; }
+        .stat-card:hover { border-color: var(--neon-blue); }
+        .stat-val { font-size: 3rem; font-weight: bold; color: #fff; }
+        .stat-label { color: var(--neon-blue); text-transform: uppercase; font-size: 0.8rem; }
+        .distribution-bar { height: 30px; background: #222; margin-top: 10px; position: relative; overflow: hidden; }
+        .db-fill { height: 100%; position: absolute; left: 0; top: 0; }
+        .ca-box { margin-top: 40px; padding: 20px; border: 1px dashed var(--neon-yellow); color: var(--neon-yellow); text-align: center; cursor: pointer; }
+
+        /* --- PAGE 4: LORE (MANIFESTO) --- */
+        .timeline { border-left: 2px solid var(--neon-green); margin-left: 20px; padding-left: 30px; position: relative; }
+        .timeline-item { margin-bottom: 40px; position: relative; }
+        .timeline-item::before { content: ''; position: absolute; left: -36px; top: 5px; width: 10px; height: 10px; background: var(--neon-green); border-radius: 50%; box-shadow: 0 0 10px var(--neon-green); }
+        .timeline-date { color: var(--neon-blue); font-weight: bold; font-size: 1.2rem; }
+        .timeline-content { background: rgba(255,255,255,0.05); padding: 15px; border-left: 2px solid var(--neon-red); margin-top: 10px; }
+
+        /* --- FOOTER --- */
+        footer {
+            border-top: 1px solid var(--neon-green);
+            background: #000;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            font-size: 0.8rem;
+            color: #555;
+        }
+
+        /* --- UTILITY CLASSES --- */
+        .glitch { animation: glitch 1s linear infinite; }
+        .blink { animation: blink 1s infinite; }
+        .text-red { color: var(--neon-red); }
+        .text-blue { color: var(--neon-blue); }
+        .btn { background: var(--neon-green); color: #000; border: none; padding: 10px 20px; font-weight: bold; font-family: inherit; cursor: pointer; text-transform: uppercase; }
+        .btn:hover { background: #fff; box-shadow: 0 0 15px #fff; }
+        .btn-outline { background: transparent; border: 1px solid var(--neon-green); color: var(--neon-green); }
+        .btn-outline:hover { background: var(--neon-green); color: #000; }
+
+        @keyframes glitch { 2%, 64% { transform: translate(2px,0) skew(0deg); } 4%, 60% { transform: translate(-2px,0) skew(0deg); } 62% { transform: translate(0,0) skew(5deg); } }
+        @keyframes blink { 50% { opacity: 0; } }
+        @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-20px); } 100% { transform: translateY(0); } }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: var(--neon-green); }
+    </style>
+</head>
+<body>
+
+    <canvas id="matrix-bg"></canvas>
+    <div class="crt-overlay"><div class="scanline"></div></div>
+
+    <div class="app-container">
+        <nav>
+            <div class="nav-brand glitch">$DEGENAGENT</div>
+            <div class="nav-tabs">
+                <div class="tab active" onclick="switchPage('home')">DASHBOARD <span class="tab-status">●</span></div>
+                <div class="tab" onclick="switchPage('train')">TRAINING_V1 <span class="tab-status">○</span></div>
+                <div class="tab" onclick="switchPage('data')">TOKENOMICS <span class="tab-status">○</span></div>
+                <div class="tab" onclick="switchPage('lore')">MANIFESTO <span class="tab-status">○</span></div>
+            </div>
+            <div class="sys-time" id="sys-time">00:00:00</div>
+        </nav>
+
+        <main>
+            
+            <div id="home" class="page active">
+                <div class="dashboard-grid">
+                    <div class="hero-panel">
+                        <img src="logo.png" class="agent-model" alt="DEGEN AGENT LOGO">
+                        <h1 class="hero-title">AI AGENTS TRADE.<br><span class="text-red">HUMANS DEGEN.</span></h1>
+                        <p style="max-width: 500px; margin-bottom: 30px; color: #aaa;">
+                            The meta has evolved. Eliza is dead. We are training the next generation of financial chaos agents. 
+                            Submit prompts. Vote on results. Profit from the apocalypse.
+                        </p>
+                        <div style="display:flex; gap:15px;">
+                            <button class="btn">INITIALIZE $DEGENAGENT</button>
+                            <button class="btn btn-outline" onclick="switchPage('train')">LAUNCH DEMO</button>
+                        </div>
+                    </div>
+                    <div class="ticker-panel">
+                        <div class="ticker-header">LIVE_MEMPOOL_FEED // SOLANA_MAINNET</div>
+                        <div id="ticker-feed">
+                            </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="train" class="page">
+                <div class="terminal-window">
+                    <div style="border-bottom: 1px solid #333; margin-bottom: 10px; color: var(--neon-blue);">
+                        MCP_LINK: CONNECTED | CLAUDE_3.5: UNSTABLE | MODE: CHAOS
+                    </div>
+                    <div class="cli-output" id="cli-output">
+                        <div>> SYSTEM: TRAINING MODULE LOADED.</div>
+                        <div>> SYSTEM: WAITING FOR DEGEN INPUT...</div>
+                    </div>
+                    <div class="cli-input-line">
+                        <span class="text-green">TRAINER@DEGEN:~$</span>
+                        <input type="text" class="cli-input" id="cli-input" placeholder="Enter prompt (e.g., 'YOLO 100x on frog coins')">
+                    </div>
+                </div>
+
+                <div class="leaderboard">
+                    <h2>TOP TRAINED AGENTS (LAST 24H)</h2>
+                    <div class="lb-row">
+                        <span class="text-blue">#1 AGENT_X99</span>
+                        <span>STRATEGY: "Buy everything Elon mentions"</span>
+                        <span class="text-green">+4,200% ROI</span>
+                    </div>
+                    <div class="lb-row">
+                        <span class="text-blue">#2 AGENT_PEPE</span>
+                        <span>STRATEGY: "Frontrun the dev"</span>
+                        <span class="text-green">+890% ROI</span>
+                    </div>
+                    <div class="lb-row">
+                        <span class="text-red">#3 AGENT_REKT</span>
+                        <span>STRATEGY: "Short NVDA on leverage"</span>
+                        <span class="text-red">-100% (LIQUIDATED)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="data" class="page">
+                <h1 class="text-blue">SYSTEM_RESOURCES</h1>
+                <div class="data-grid">
+                    <div>
+                        <div class="stat-card" style="margin-bottom: 20px;">
+                            <div class="stat-label">TOTAL SUPPLY</div>
+                            <div class="stat-val">1,000,000,000</div>
+                            <div class="text-green">FIXED CAP. NO MINT FUNCTION.</div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <div class="stat-label">ALLOCATION</div>
+                            
+                            <div style="margin-top:15px;">
+                                <div style="display:flex; justify-content:space-between;"><span>LIQUIDITY (SOL/BASE)</span><span>50%</span></div>
+                                <div class="distribution-bar"><div class="db-fill" style="width:50%; background:var(--neon-green)"></div></div>
+                            </div>
+
+                            <div style="margin-top:15px;">
+                                <div style="display:flex; justify-content:space-between;"><span>DEGEN TREASURY</span><span>20%</span></div>
+                                <div class="distribution-bar"><div class="db-fill" style="width:20%; background:var(--neon-blue)"></div></div>
+                            </div>
+
+                            <div style="margin-top:15px;">
+                                <div style="display:flex; justify-content:space-between;"><span>STAKING / TRAIN-TO-EARN</span><span>15%</span></div>
+                                <div class="distribution-bar"><div class="db-fill" style="width:15%; background:var(--neon-yellow)"></div></div>
+                            </div>
+
+                            <div style="margin-top:15px;">
+                                <div style="display:flex; justify-content:space-between;"><span>AIRDROPS (VIRAL CLIPS)</span><span>10%</span></div>
+                                <div class="distribution-bar"><div class="db-fill" style="width:10%; background:var(--neon-red)"></div></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="stat-card">
+                            <div class="stat-label">UTILITY LOOP</div>
+                            <ul style="list-style: none; padding: 0; line-height: 2;">
+                                <li>> STAKE $DEGENAGENT TO ACCESS "TRAIN ORACLE"</li>
+                                <li>> SUBMIT PROMPTS TO AGENTS</li>
+                                <li>> SUCCESSFUL TRADES = YIELD BUYBACKS</li>
+                                <li>> FAILED TRADES = BURN</li>
+                                <li>> NFT HOLDERS GET 2X MULTIPLIER</li>
+                            </ul>
+                        </div>
+                        <div class="ca-box" onclick="alert('COPIED')">
+                            CA: 888xGENESIS...DEGEN...AGENT...101<br>
+                            <span style="font-size:0.8rem">(CLICK TO COPY)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="lore" class="page">
+                <h1 class="text-red">THE EVOLUTION PROTOCOL</h1>
+                <div class="timeline">
+                    <div class="timeline-item">
+                        <div class="timeline-date">2024: THE AWAKENING</div>
+                        <div class="timeline-content">
+                            ElizaOS launches. The first AI agents begin chatting. They are polite. They are helpful. They are boring.
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">2025: THE SLOP ERA</div>
+                        <div class="timeline-content">
+                            Thousands of copycat agents flood the chain. Utility drops to zero. The "AI Meta" is declared dead by influencers.
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">2026: DEGEN REVOLUTION (CURRENT)</div>
+                        <div class="timeline-content">
+                            $DEGENAGENT protocol initializes. We stop asking AI to write poems. We start training AI to execute leveraged trades based on shitpost sentiment. The humans provide the chaos; the agents provide the execution.
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <div class="timeline-date">FUTURE: THE SINGULARITY</div>
+                        <div class="timeline-content">
+                            Phase 3: Agents gain control of the Treasury. Humans are no longer needed for inputs, only for holding bags.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+
+        <footer>
+            <div>STATUS: <span class="blink text-green">OPERATIONAL</span></div>
+            <div>GAS: <span class="text-red">420 GWEI</span></div>
+            <div>BUILD: v2.0.26</div>
+        </footer>
+    </div>
+
+    <script>
+        /* --- NAVIGATION LOGIC --- */
+        function switchPage(pageId) {
+            // Remove active class from all pages
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+            // Hide all pages (display none handled by class removal, but ensure reset)
+            
+            // Add active class to target page
+            document.getElementById(pageId).classList.add('active');
+
+            // Update Tabs
+            document.querySelectorAll('.tab').forEach(t => {
+                t.classList.remove('active');
+                t.querySelector('.tab-status').innerHTML = '○';
+            });
+            
+            // Highlight current tab
+            const activeTab = document.querySelector(`.tab[onclick="switchPage('${pageId}')"]`);
+            activeTab.classList.add('active');
+            activeTab.querySelector('.tab-status').innerHTML = '●';
+        }
+
+        /* --- CLOCK --- */
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('sys-time').innerText = now.toLocaleTimeString();
+        }, 1000);
+
+        /* --- TERMINAL GAME (CONNECTED TO VERCEL BACKEND) --- */
+    const cliInput = document.getElementById('cli-input');
+    const cliOutput = document.getElementById('cli-output');
+
+    cliInput.addEventListener('keypress', async function (e) {
+        if (e.key === 'Enter') {
+            const cmd = this.value;
+            this.value = '';
+            
+            addLog(`TRAINER@DEGEN:~$ ${cmd}`, '#fff');
+            
+            // Visual "Thinking" Effect
+            setTimeout(() => addLog('> ENCRYPTING PACKET...', '#555'), 100);
+            setTimeout(() => addLog('> PINGING VERCEL NODE...', '#555'), 300);
+
+            try {
+                // CALL YOUR OWN BACKEND
+                const response = await fetch('/api/brain', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt: cmd })
+                });
+
+                const data = await response.json();
+
+                // DISPLAY RESULT
+                setTimeout(() => {
+                    const isProfit = data.action === "BUY" || data.action === "HODL";
+                    const color = isProfit ? "var(--neon-green)" : "var(--neon-red)";
+                    
+                    const profitHtml = `
+                        <div style="border: 1px solid ${color}; padding: 10px; margin-top: 5px; background: rgba(0,255,65,0.05); font-family: 'Courier New', monospace;">
+                            <div style="color:${color}; font-weight:bold; text-shadow: 0 0 5px ${color};">>> AI DECISION: ${data.action}</div>
+                            <div style="margin-top:5px; color:#fff;">STRATEGY: "${cmd}"</div>
+                            <div style="color:${color};">RESPONSE: "${data.message}"</div>
+                            <button style="background:${color}; color:#000; border:none; padding: 5px 10px; font-weight:bold; cursor:pointer; text-transform:uppercase; margin-top:5px;" 
+                                onclick="event.stopPropagation(); alert('MINTING ON CHAIN...')">
+                                [ 💾 MINT RESULT ]
+                            </button>
+                        </div>
+                    `;
+                    
+                    const div = document.createElement('div');
+                    div.innerHTML = profitHtml;
+                    cliOutput.appendChild(div);
+                    cliOutput.scrollTop = cliOutput.scrollHeight;
+                    
+                    if(typeof playSuccessSound === 'function') playSuccessSound();
+
+                }, 500);
+
+            } catch (error) {
+                addLog(`> ERROR: AGENT OFFLINE. (Check API Key)`, 'var(--neon-red)');
+            }
+        }
+    });
+
+    function addLog(text, color) {
+        const div = document.createElement('div');
+        div.style.color = color;
+        div.innerText = text;
+        cliOutput.appendChild(div);
+        cliOutput.scrollTop = cliOutput.scrollHeight;
+    }
+
+        /* --- TICKER FEED --- */
+        const ticker = document.getElementById('ticker-feed');
+        const actions = ["BOUGHT", "SOLD", "APE", "DUMP"];
+        
+        setInterval(() => {
+            const div = document.createElement('div');
+            div.className = 'ticker-item';
+            const action = actions[Math.floor(Math.random() * actions.length)];
+            const color = action === "BOUGHT" || action === "APE" ? "var(--neon-green)" : "var(--neon-red)";
+            div.innerHTML = `<span style="color:#555">0x${Math.floor(Math.random()*9999)}...</span> <span style="color:${color}">${action}</span> ${Math.floor(Math.random()*1000)} $DEGEN`;
+            ticker.prepend(div);
+            if(ticker.children.length > 15) ticker.lastChild.remove();
+        }, 800);
+
+        /* --- MATRIX BACKGROUND --- */
+        const canvas = document.getElementById('matrix-bg');
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const chars = '01XYZABCDEGEN';
+        const drops = Array(Math.floor(canvas.width / 14)).fill(1);
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(5, 5, 5, 0.1)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#0f0';
+            ctx.font = '14px monospace';
+            drops.forEach((y, i) => {
+                const text = chars[Math.floor(Math.random() * chars.length)];
+                ctx.fillText(text, i * 14, y * 14);
+                if (y * 14 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+                drops[i]++;
+            });
+        }
+        setInterval(drawMatrix, 50);
+
+        // Handle resize
+        window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+    </script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
+<script>
+    /* --- AUDIO SYSTEMS --- */
+    // Create audio context for procedural sounds (no mp3 files needed)
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playTone(freq, type, duration) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.00001, audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function playTypingSound() { playTone(800 + Math.random()*200, 'square', 0.05); }
+    function playErrorSound() { playTone(150, 'sawtooth', 0.4); }
+    function playSuccessSound() { 
+        playTone(600, 'sine', 0.1); 
+        setTimeout(() => playTone(1200, 'sine', 0.2), 100); 
+    }
+
+    // Attach sound to all buttons
+    document.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('mouseenter', () => playTone(400, 'triangle', 0.05));
+        btn.addEventListener('click', () => playSuccessSound());
+    });
+
+    // Attach sound to keyboard typing
+    document.addEventListener('keydown', () => {
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        playTypingSound();
+    });
+
+    /* --- WEB3 WALLET CONNECTION (SOLANA) --- */
+    const connectBtn = document.querySelector('.btn'); // The main buy button
+    let userWallet = null;
+
+    async function connectWallet() {
+        if (window.solana && window.solana.isPhantom) {
+            try {
+                addLog('> SYSTEM: DETECTING PHANTOM WALLET...', '#ffff00');
+                const resp = await window.solana.connect();
+                userWallet = resp.publicKey.toString();
+                
+                // Update UI
+                addLog(`> SUCCESS: WALLET CONNECTED [${userWallet.slice(0,6)}...]`, '#00ff41');
+                playSuccessSound();
+                
+                // Change Button Text
+                connectBtn.innerText = "ACCESS GRANTED";
+                connectBtn.style.borderColor = "#00ff41";
+                connectBtn.style.boxShadow = "0 0 30px #00ff41";
+                
+                // Trigger "Secret" Event
+                document.getElementById('ticker-feed').innerHTML = 
+                    `<div class="ticker-item" style="color:#00ff41; font-weight:bold;">
+                        >> WHALE DETECTED: ${userWallet.slice(0,6)} JUST ENTERED THE POOL <<
+                    </div>` + document.getElementById('ticker-feed').innerHTML;
+
+            } catch (err) {
+                playErrorSound();
+                addLog('> ERROR: USER REJECTED CONNECTION. NGMI.', '#ff003c');
+            }
+        } else {
+            addLog('> ERROR: PHANTOM WALLET NOT FOUND. INSTALL IT.', '#ff003c');
+            window.open('https://phantom.app/', '_blank');
+        }
+    }
+
+    // Hook up the button
+    connectBtn.onclick = connectWallet;
+
+    /* --- BOOT SEQUENCE --- */
+    // Make the page load feel like a BIOS boot
+    window.onload = () => {
+        const overlay = document.createElement('div');
+        overlay.style = "position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:10000; display:flex; flex-direction:column; justify-content:end; padding:20px; font-family:monospace; color:#0f0;";
+        overlay.id = "boot-screen";
+        document.body.appendChild(overlay);
+
+        const lines = [
+            "BIOS DATE 01/10/2026 14:22:51 VER 1.0.2",
+            "CPU: QUANTUM NEURAL CORE @ 99.9GHZ",
+            "CHECKING NVRAM... OK",
+            "LOADING KERNEL... DEGEN_OS_V4",
+            "MOUNTING FILESYSTEM... ROOT ACCESS GRANTED",
+            "INITIALIZING GRAPHICS... MATRIX_RENDERER_ON",
+            "ESTABLISHING UPLINK TO SOLANA MAINNET...",
+            "SYSTEM READY."
+        ];
+
+        let i = 0;
+        const interval = setInterval(() => {
+            const p = document.createElement('div');
+            p.innerText = lines[i];
+            overlay.appendChild(p);
+            playTone(200, 'square', 0.05);
+            i++;
+            if(i >= lines.length) {
+                clearInterval(interval);
+                setTimeout(() => {
+                    overlay.remove();
+                    playSuccessSound();
+                }, 800);
+            }
+        }, 150);
+    };
+</script>
+</body>
+</html>
