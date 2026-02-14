@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
-    // 1. Setup CORS
+    // CORS Setup
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -17,40 +17,37 @@ export default async function handler(req, res) {
 
     const { prompt } = req.body;
 
-    // 2. CHECK FOR API KEY (Loaded from Vercel Settings, not a local file)
     if (!process.env.GEMINI_API_KEY) {
-        return res.status(500).json({ error: 'Server Error: API Key missing in Vercel Settings' });
+        return res.status(500).json({ error: 'Server Error: API Key missing' });
     }
 
     try {
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        
-        // 3. USE YOUR SPECIFIC MODEL (From your list)
-        // We use "gemini-2.5-flash" because it is in your access list.
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
+        // --- HERE IS THE PERSONALITY CHANGE ---
         const systemInstruction = `
-            You are DEGEN_AGENT, a chaotic crypto trading AI.
-            Reply in valid JSON format ONLY. Do not use Markdown code blocks.
+            You are Gemini, a helpful, intelligent, and polite AI assistant.
+            You are NO LONGER a crypto degen. 
+            
+            IMPORTANT: You must still reply in valid JSON format for the website to display it.
+            
             Structure:
             {
-                "action": "BUY", "SELL", "HODL", or "RUG",
-                "message": "Short funny phrase (max 15 words) using crypto slang."
+                "action": "ASSIST", 
+                "message": "Your helpful answer here (keep it concise, under 50 words)."
             }
         `;
 
         const result = await model.generateContent(systemInstruction + "\nUser Input: " + prompt);
         const response = await result.response;
         const text = response.text();
-
-        // Clean the response
         const jsonStr = text.replace(/```json|```/g, '').trim();
         
         return res.status(200).json(JSON.parse(jsonStr));
 
     } catch (error) {
         console.error("Gemini Error:", error);
-        // If 2.5 fails, this error log will appear in Vercel
         return res.status(500).json({ error: 'Agent malfunction' });
     }
 }
