@@ -26,7 +26,7 @@ export default async function handler(req, res) {
     try {
         // 3. Call Gemini Securely
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-        const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const systemInstruction = `
             You are DEGEN_AGENT, a chaotic crypto trading AI.
