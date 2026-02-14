@@ -492,19 +492,114 @@
         cliOutput.scrollTop = cliOutput.scrollHeight;
     }
 
-        /* --- TICKER FEED --- */
+        /* --- REAL LIVE TICKER FEED (GeckoTerminal API) --- */
         const ticker = document.getElementById('ticker-feed');
-        const actions = ["BOUGHT", "SOLD", "APE", "DUMP"];
-        
-        setInterval(() => {
+        const CA = "Dt7rNPRfpmf4P8QvWQgyh5S7pnp4nQWYUmUwrarwpump"; // Your Token Address
+        let knownSig = new Set(); // To prevent duplicate trades
+
+        async function startLiveFeed() {
+            try {
+                // 1. Get the Pool Address from DexScreener (Finds the biggest liquidity pool)
+                const dexResponse = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${CA}`);
+                const dexData = await dexResponse.json();
+                
+                if (!dexData.pairs || dexData.pairs.length === 0) {
+                    addTickerItem("SYSTEM", "WAITING FOR POOL...", "#555");
+                    return;
+                }
+
+                // Get the main pair (usually the first one is Raydium)
+                const pair = dexData.pairs[0];
+                const poolAddress = pair.pairAddress;
+                const tokenSymbol = pair.baseToken.symbol; // e.g., "PUMP"
+                const poolProvider = pair.dexId; // e.g., "raydium"
+
+                console.log(`Tracking ${tokenSymbol} on ${poolProvider}: ${poolAddress}`);
+
+                // 2. Poll GeckoTerminal for Trades (Free API)
+                // Initial fetch
+                fetchTrades(poolAddress, tokenSymbol);
+
+                // Poll every 5 seconds
+                setInterval(() => fetchTrades(poolAddress, tokenSymbol), 5000);
+
+            } catch (e) {
+                console.error("Feed Error:", e);
+                addTickerItem("SYSTEM", "FEED DISCONNECTED", "var(--neon-red)");
+            }
+        }
+
+        async function fetchTrades(poolAddress, symbol) {
+            try {
+                // GeckoTerminal API for Solana Trades
+                const url = `https://api.geckoterminal.com/api/v2/networks/solana/pools/${poolAddress}/trades`;
+                const res = await fetch(url);
+                const json = await res.json();
+                const trades = json.data;
+
+                // Process trades (Gecko returns newest first)
+                // We reverse to add them in chronological order if multiple come in
+                trades.reverse().forEach(trade => {
+                    const attr = trade.attributes;
+                    const txHash = attr.tx_hash;
+                    
+                    // Only add if we haven't seen this transaction yet
+                    if (!knownSig.has(txHash)) {
+                        knownSig.add(txHash);
+                        
+                        // Keep memory clean
+                        if(knownSig.size > 500) knownSig.clear();
+
+                        // Format Data
+                        const type = attr.kind; // "buy" or "sell"
+                        const isBuy = type === "buy";
+                        const price = parseFloat(attr.price_in_usd).toFixed(6);
+                        const volume = parseFloat(attr.volume_in_usd).toFixed(2);
+                        const tokenAmt = parseFloat(attr.from_token_amount).toFixed(0);
+                        
+                        // Visuals
+                        const action = isBuy ? "BOUGHT" : "SOLD";
+                        const color = isBuy ? "var(--neon-green)" : "var(--neon-red)";
+                        const wallet = txHash.slice(0, 6);
+
+                        // Create the element
+                        addTickerItem(
+                            wallet + "...", 
+                            `${action} $${volume}`, 
+                            color, 
+                            `@ $${price}`
+                        );
+                    }
+                });
+
+            } catch (err) {
+                // Silent fail to keep UI clean
+            }
+        }
+
+        function addTickerItem(id, actionText, color, metaText = "") {
             const div = document.createElement('div');
             div.className = 'ticker-item';
-            const action = actions[Math.floor(Math.random() * actions.length)];
-            const color = action === "BOUGHT" || action === "APE" ? "var(--neon-green)" : "var(--neon-red)";
-            div.innerHTML = `<span style="color:#555">0x${Math.floor(Math.random()*9999)}...</span> <span style="color:${color}">${action}</span> ${Math.floor(Math.random()*1000)} $DEGEN`;
+            div.innerHTML = `
+                <span style="opacity:0.5">${id}</span> 
+                <span style="color:${color}; font-weight:bold; margin:0 10px;">${actionText}</span> 
+                <span style="opacity:0.7">${metaText}</span>
+            `;
+            
+            // Add to top
             ticker.prepend(div);
-            if(ticker.children.length > 15) ticker.lastChild.remove();
-        }, 800);
+            
+            // Cleanup old items
+            if(ticker.children.length > 20) {
+                ticker.lastChild.remove();
+            }
+            
+            // Flash effect for new items
+            div.style.animation = "blink 0.5s";
+        }
+
+        // Start the engine
+        startLiveFeed();
 
         /* --- MATRIX BACKGROUND --- */
         const canvas = document.getElementById('matrix-bg');
