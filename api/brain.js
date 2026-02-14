@@ -1,8 +1,7 @@
-// This runs on Vercel's Server (Secure)
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export default async function handler(req, res) {
-    // 1. Setup CORS (So your site can talk to this)
+    // 1. Setup CORS
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
@@ -16,16 +15,18 @@ export default async function handler(req, res) {
         return;
     }
 
-    // 2. Get the prompt from the frontend
     const { prompt } = req.body;
 
+    // 2. CHECK FOR API KEY (Loaded from Vercel Settings, not a local file)
     if (!process.env.GEMINI_API_KEY) {
-        return res.status(500).json({ error: 'API Key missing on server' });
+        return res.status(500).json({ error: 'Server Error: API Key missing in Vercel Settings' });
     }
 
     try {
-        // 3. Call Gemini Securely
         const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+        
+        // 3. USE YOUR SPECIFIC MODEL (From your list)
+        // We use "gemini-2.5-flash" because it is in your access list.
         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const systemInstruction = `
@@ -48,7 +49,8 @@ export default async function handler(req, res) {
         return res.status(200).json(JSON.parse(jsonStr));
 
     } catch (error) {
-        console.error(error);
+        console.error("Gemini Error:", error);
+        // If 2.5 fails, this error log will appear in Vercel
         return res.status(500).json({ error: 'Agent malfunction' });
     }
 }
