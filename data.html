@@ -23,12 +23,12 @@
         #canvas-container { position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.4; }
         .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%); background-size: 100% 4px; pointer-events: none; z-index: 99; opacity: 0.3; }
 
-        /* GRID LAYOUT (RESIZED FOR BIGGER CHART) */
+        /* GRID LAYOUT (SIMPLIFIED FOR MASSIVE CHART) */
         .container {
             display: grid;
             grid-template-columns: 300px 1fr 400px;
-            /* CHANGED: Header 70px, Bottom 180px, Chart gets the rest */
-            grid-template-rows: 70px 1fr 180px; 
+            /* CHANGED: Only 2 rows now. Header (70px) + Content (The rest) */
+            grid-template-rows: 70px 1fr; 
             height: 100vh;
             padding: 15px;
             gap: 15px;
@@ -49,7 +49,7 @@
         .panel { background: var(--panel-bg); border: var(--border); position: relative; display: flex; flex-direction: column; overflow: hidden; }
         .panel-header { background: rgba(0,255,65,0.1); padding: 8px; font-size: 0.75rem; border-bottom: var(--border); display: flex; justify-content: space-between; font-weight: bold; letter-spacing: 1px; }
         
-        /* CHART CONTAINER */
+        /* CHART CONTAINER (NOW FULL HEIGHT) */
         #main-chart { grid-column: 2 / 3; grid-row: 2 / 3; position: relative; background: #000; }
         
         /* IFRAME STYLE */
@@ -72,15 +72,9 @@
         }
         .whale-row:hover { background: rgba(0, 255, 65, 0.1); cursor: pointer; }
         
-        /* DISTRIBUTION (COMPACT) */
-        .distribution { grid-column: 2 / 3; grid-row: 3 / 4; display: flex; gap: 20px; padding: 15px; align-items: center; }
-        .pie-chart { width: 80px; height: 80px; border-radius: 50%; background: conic-gradient(var(--neon-green) 0% 60%, var(--neon-blue) 60% 80%, var(--neon-red) 80% 100%); box-shadow: 0 0 15px rgba(0,255,65,0.2); }
-        .legend div { margin-bottom: 3px; font-size: 0.75rem; }
-        .dot { display: inline-block; width: 8px; height: 8px; margin-right: 5px; }
-
         /* POSITIONS */
-        .supply-panel { grid-column: 1 / 2; grid-row: 2 / 4; }
-        .holders-panel { grid-column: 3 / 4; grid-row: 2 / 4; }
+        .supply-panel { grid-column: 1 / 2; grid-row: 2 / 3; }
+        .holders-panel { grid-column: 3 / 4; grid-row: 2 / 3; }
 
         /* HUD CORNERS */
         .corner { position: absolute; width: 10px; height: 10px; border-style: solid; border-color: var(--neon-green); pointer-events: none; }
@@ -142,20 +136,6 @@
             <iframe 
                 src="https://dexscreener.com/solana/Dt7rNPRfpmf4P8QvWQgyh5S7pnp4nQWYUmUwrarwpump?embed=1&theme=dark&trades=0&info=0">
             </iframe>
-        </div>
-
-        <div class="panel distribution">
-            <div class="pie-chart" id="pie-visual"></div>
-            <div class="legend">
-                <div><span class="dot" style="background:var(--neon-green)"></span> PUBLIC</div>
-                <div><span class="dot" style="background:var(--neon-blue)"></span> TREASURY</div>
-                <div><span class="dot" style="background:var(--neon-red)"></span> BURNED</div>
-            </div>
-            <div style="margin-left: auto; font-size: 0.8rem; text-align: right;">
-                <div style="color: #aaa;">CONTRACT:</div>
-                <div style="color: #fff;">0x888...DEGEN</div>
-                <div style="color: var(--neon-green); margin-top: 5px;">RENOUNCED</div>
-            </div>
         </div>
 
         <div class="panel holders-panel">
@@ -221,11 +201,6 @@
                 document.getElementById('circ-supply').innerText = circulating.toLocaleString(undefined, {maximumFractionDigits: 0});
                 document.getElementById('burn-bar').style.width = `${Math.max(1, burnPercent)}%`; 
                 document.getElementById('burn-val').innerText = `${totalBurned.toLocaleString(undefined, {maximumFractionDigits: 0})} (${burnPercent.toFixed(2)}%)`;
-
-                const pPub = (circulating/INITIAL_SUPPLY)*100;
-                const pBurn = burnPercent;
-                const pTreasury = 100 - pPub - pBurn;
-                document.getElementById('pie-visual').style.background = `conic-gradient(var(--neon-green) 0% ${pPub}%, var(--neon-blue) ${pPub}% ${pPub+pTreasury}%, var(--neon-red) ${pPub+pTreasury}% 100%)`;
 
                 const largestAccounts = await connection.getTokenLargestAccounts(mint);
                 renderWhaleList(largestAccounts.value.map((acc, i) => ({
