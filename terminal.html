@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>DEGEN_AI // NEURAL_UPLINK</title>
+    <title>PROTOCOL_V4 // NEURAL_UPLINK</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root { --neon-green: #00ff41; --bg-color: #020202; --font: 'Courier New', monospace; }
@@ -38,9 +38,12 @@
         input { background: transparent; border: none; color: #fff; width: 100%; font-family: inherit; font-size: 1.1rem; outline: none; margin-left: 10px; }
 
         /* AI MESSAGE STYLE */
-        .ai-msg { color: var(--neon-green); margin-bottom: 10px; }
-        .user-msg { color: #fff; margin-bottom: 10px; opacity: 0.8; }
-        .error-msg { color: red; }
+        .ai-msg { color: var(--neon-green); margin-bottom: 10px; text-shadow: 0 0 5px rgba(0, 255, 65, 0.5); }
+        
+        /* USER MESSAGE STYLE (STRICT WHITE) */
+        .user-msg { color: #ffffff; margin-bottom: 10px; font-weight: bold; }
+        
+        .error-msg { color: #ff003c; }
     </style>
 </head>
 <body>
@@ -52,7 +55,7 @@
             <div class="nav-links">
                 <a href="index.html">COMMAND</a>
                 <a href="#" style="color:var(--neon-green)">TERMINAL</a>
-                <a href="#">DATA</a>
+                <a href="data.html">DATA</a>
             </div>
         </header>
 
@@ -68,7 +71,7 @@
                 <div class="ai-msg">> I am ready. Feed me market data or scenarios.</div>
             </div>
             <div class="input-area">
-                <span>root@degen:~$</span>
+                <span style="color:#fff">root@degen:~$</span>
                 <input type="text" id="prompt" placeholder="Enter command..." autofocus>
             </div>
         </div>
@@ -111,7 +114,7 @@
                 const text = input.value;
                 input.value = '';
                 
-                // Add User Message
+                // 1. Add User Message (WHITE)
                 output.innerHTML += `<div class="user-msg">root@degen:~$ ${text}</div>`;
                 output.scrollTop = output.scrollHeight;
 
@@ -124,7 +127,11 @@
                     const data = await res.json();
                     
                     setTimeout(() => {
-                        const color = data.action === 'BUY' ? '#0f0' : (data.action === 'SELL' ? '#f00' : '#fff');
+                        // 2. Determine Color (Default is NEON GREEN)
+                        // Only turn Red if it's a SELL decision or Error
+                        let color = 'var(--neon-green)';
+                        if(data.action === 'SELL' || data.action === 'RUG') color = '#ff003c';
+
                         output.innerHTML += `<div class="ai-msg" style="color:${color}">> [${data.action}] ${data.message}</div>`;
                         output.scrollTop = output.scrollHeight;
                     }, 500);
