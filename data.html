@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PROTOCOL_V4 // NETWORK_DATA</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --neon-green: #00ff41;
+            --neon-blue: #0088ff;
+            --neon-red: #ff003c;
+            --bg-color: #020202;
+            --panel-bg: rgba(0, 5, 0, 0.9);
+            --border: 1px solid rgba(0, 255, 65, 0.3);
+            --font: 'Courier New', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: var(--bg-color); color: var(--neon-green); font-family: var(--font); overflow: hidden; height: 100vh; }
+        
+        /* 3D BG */
+        #canvas-container { position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.4; }
+        .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%); background-size: 100% 4px; pointer-events: none; z-index: 99; opacity: 0.3; }
+
+        /* GRID LAYOUT */
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 350px;
+            grid-template-rows: 60px 1fr 250px;
+            height: 100vh;
+            padding: 15px;
+            gap: 15px;
+        }
+
+        /* HEADER */
+        header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--neon-green); background: #000; padding: 0 20px; z-index: 10; }
+        .nav-links a { color: #555; text-decoration: none; margin-left: 20px; font-weight: bold; font-size: 1.1rem; }
+        .nav-links a:hover { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
+
+        /* PANELS */
+        .panel { background: var(--panel-bg); border: var(--border); position: relative; display: flex; flex-direction: column; overflow: hidden; }
+        .panel-header { background: rgba(0,255,65,0.1); padding: 8px; font-size: 0.75rem; border-bottom: var(--border); display: flex; justify-content: space-between; font-weight: bold; letter-spacing: 1px; }
+        
+        /* CHART CONTAINER */
+        #main-chart { grid-column: 2 / 3; grid-row: 2 / 3; position: relative; }
+        canvas#chart-canvas { width: 100%; height: 100%; display: block; }
+
+        /* METRICS GRID */
+        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
+        .metric-box { border: 1px solid #333; padding: 10px; background: rgba(0,0,0,0.5); }
+        .metric-label { font-size: 0.7rem; color: #888; }
+        .metric-val { font-size: 1.2rem; font-weight: bold; color: #fff; margin-top: 5px; }
+        .pulse { animation: pulse 2s infinite; }
+
+        /* WHALE WATCH */
+        .whale-list { padding: 10px; overflow-y: auto; font-size: 0.8rem; }
+        .whale-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed #333; }
+        .whale-row:hover { background: rgba(0, 255, 65, 0.1); }
+
+        /* DISTRIBUTION (BOTTOM) */
+        .distribution { grid-column: 2 / 3; grid-row: 3 / 4; display: flex; gap: 20px; padding: 20px; align-items: center; }
+        .pie-chart { width: 100px; height: 100px; border-radius: 50%; background: conic-gradient(var(--neon-green) 0% 60%, var(--neon-blue) 60% 80%, var(--neon-red) 80% 100%); box-shadow: 0 0 20px rgba(0,255,65,0.2); }
+        .legend div { margin-bottom: 5px; font-size: 0.8rem; }
+        .dot { display: inline-block; width: 10px; height: 10px; margin-right: 5px; }
+
+        /* SUPPLY PANEL */
+        .supply-panel { grid-column: 1 / 2; grid-row: 2 / 4; }
+
+        /* HOLDERS PANEL */
+        .holders-panel { grid-column: 3 / 4; grid-row: 2 / 4; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        
+        /* HUD CORNERS */
+        .corner { position: absolute; width: 10px; height: 10px; border-style: solid; border-color: var(--neon-green); pointer-events: none; }
+        .tl { top: 0; left: 0; border-width: 2px 0 0 2px; }
+        .br { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+    <div class="scanlines"></div>
+
+    <div class="container">
+        <header>
+            <div>PROTOCOL_V4 // ANALYTICS</div>
+            <div class="nav-links">
+                <a href="index.html">COMMAND</a>
+                <a href="terminal.html">TERMINAL</a>
+                <a href="data.html" style="color:var(--neon-green)">DATA</a>
+            </div>
+            <div id="clock">00:00:00</div>
+        </header>
+
+        <div class="panel supply-panel">
+            <div class="corner tl"></div><div class="corner br"></div>
+            <div class="panel-header"><span>TOKEN_ECONOMICS</span><span>LOCKED</span></div>
+            <div class="metrics-grid">
+                <div class="metric-box">
+                    <div class="metric-label">TOTAL SUPPLY</div>
+                    <div class="metric-val">1,000,000,000</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">CIRCULATING</div>
+                    <div class="metric-val" id="circ-supply">892,104,200</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">MARKET CAP</div>
+                    <div class="metric-val" style="color:var(--neon-blue)">$4.2M</div>
+                </div>
+                <div class="metric-box">
+                    <div class="metric-label">LIQUIDITY</div>
+                    <div class="metric-val" style="color:var(--neon-red)">BURNED</div>
+                </div>
+            </div>
+            <div style="padding: 15px; margin-top: auto;">
+                <div class="metric-label">BURN_RATE (24H)</div>
+                <div style="height: 5px; background: #333; margin-top: 5px; position: relative;">
+                    <div style="width: 45%; height: 100%; background: var(--neon-red); box-shadow: 0 0 10px red;"></div>
+                </div>
+                <div style="text-align: right; font-size: 0.8rem; margin-top: 5px; color: var(--neon-red);">452,000 TOKENS</div>
+            </div>
+        </div>
+
+        <div class="panel" id="main-chart">
+            <div class="panel-header"><span>LIVE_SENTIMENT_INDEX</span><span>REALTIME</span></div>
+            <canvas id="chart-canvas"></canvas>
+            <div style="position:absolute; top: 40px; left: 20px; font-size: 3rem; font-weight: bold; opacity: 0.8;">
+                $0.0042 <span style="font-size: 1rem; color: var(--neon-green);">+12.4%</span>
+            </div>
+        </div>
+
+        <div class="panel distribution">
+            <div class="pie-chart"></div>
+            <div class="legend">
+                <div><span class="dot" style="background:var(--neon-green)"></span> PUBLIC (60%)</div>
+                <div><span class="dot" style="background:var(--neon-blue)"></span> TREASURY (20%)</div>
+                <div><span class="dot" style="background:var(--neon-red)"></span> BURNED (20%)</div>
+            </div>
+            <div style="margin-left: auto; font-size: 0.8rem; text-align: right;">
+                <div style="color: #aaa;">CONTRACT:</div>
+                <div style="color: #fff;">0x888...DEGEN</div>
+                <div style="color: var(--neon-green); margin-top: 5px;">RENOUNCED</div>
+            </div>
+        </div>
+
+        <div class="panel holders-panel">
+            <div class="corner tl"></div><div class="corner br"></div>
+            <div class="panel-header"><span>WHALE_WATCH</span><span>TOP 50</span></div>
+            <div class="whale-list" id="whale-list">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        /* --- 1. 3D BACKGROUND (PARTICLE SPHERE) --- */
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        const geometry = new THREE.IcosahedronGeometry(10, 3);
+        const material = new THREE.PointsMaterial({ color: 0x0088ff, size: 0.08, transparent: true, opacity: 0.6 });
+        const sphere = new THREE.Points(geometry, material);
+        scene.add(sphere);
+
+        camera.position.z = 25;
+
+        function animate3D() {
+            requestAnimationFrame(animate3D);
+            sphere.rotation.y += 0.002;
+            sphere.rotation.x -= 0.001;
+            renderer.render(scene, camera);
+        }
+        animate3D();
+
+        /* --- 2. CYBERPUNK CHART ENGINE (CANVAS) --- */
+        const cvs = document.getElementById('chart-canvas');
+        const ctx = cvs.getContext('2d');
+        
+        // Resize canvas to fit panel
+        function resizeChart() {
+            cvs.width = cvs.parentElement.offsetWidth;
+            cvs.height = cvs.parentElement.offsetHeight;
+        }
+        window.addEventListener('resize', () => {
+            resizeChart();
+            camera.aspect = window.innerWidth/window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        resizeChart();
+
+        // Chart Data
+        let dataPoints = Array(100).fill(0).map((_, i) => 50 + Math.random() * 10);
+        let offset = 0;
+
+        function drawChart() {
+            ctx.clearRect(0, 0, cvs.width, cvs.height);
+            
+            // Draw Grid
+            ctx.strokeStyle = "rgba(0, 255, 65, 0.1)";
+            ctx.lineWidth = 1;
+            for(let i=0; i<cvs.width; i+=50) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,cvs.height); ctx.stroke(); }
+            for(let i=0; i<cvs.height; i+=50) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(cvs.width,i); ctx.stroke(); }
+
+            // Update Data (Random Walk)
+            let last = dataPoints[dataPoints.length - 1];
+            let change = (Math.random() - 0.45) * 5; // Slight upward bias
+            let newPoint = Math.max(10, Math.min(90, last + change));
+            dataPoints.push(newPoint);
+            dataPoints.shift();
+
+            // Draw Line
+            ctx.beginPath();
+            ctx.strokeStyle = "#00ff41";
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#00ff41";
+            
+            let step = cvs.width / (dataPoints.length - 1);
+            
+            for(let i=0; i<dataPoints.length; i++) {
+                let y = cvs.height - (dataPoints[i] / 100 * cvs.height);
+                if(i===0) ctx.moveTo(0, y);
+                else ctx.lineTo(i * step, y);
+            }
+            ctx.stroke();
+
+            // Draw Area under line
+            ctx.lineTo(cvs.width, cvs.height);
+            ctx.lineTo(0, cvs.height);
+            ctx.fillStyle = "rgba(0, 255, 65, 0.1)";
+            ctx.fill();
+
+            requestAnimationFrame(drawChart);
+        }
+        drawChart();
+
+        /* --- 3. WHALE WATCH GENERATOR --- */
+        const whaleList = document.getElementById('whale-list');
+        const whales = [
+            { id: "0x89...2A1", amt: "4.2%", tag: "DEV" },
+            { id: "0x77...B99", amt: "2.1%", tag: "SMART_MONEY" },
+            { id: "0x12...C44", amt: "1.8%", tag: "MEV_BOT" },
+            { id: "0x55...D12", amt: "1.5%", tag: "WHALE" },
+            { id: "0x99...F00", amt: "1.2%", tag: "KOL" },
+            { id: "0xAA...111", amt: "0.9%", tag: "PAPER_HAND" },
+        ];
+        
+        // Fill list 3 times to make it scrollable
+        [...whales, ...whales, ...whales].forEach(w => {
+            const div = document.createElement('div');
+            div.className = 'whale-row';
+            div.innerHTML = `
+                <span style="color:var(--neon-blue)">${w.id}</span>
+                <span style="color:#fff">${w.amt}</span>
+                <span style="color:#666; font-size:0.7rem">[${w.tag}]</span>
+            `;
+            whaleList.appendChild(div);
+        });
+
+        /* --- 4. LIVE METRICS UPDATE --- */
+        setInterval(() => {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+            
+            // Randomly twitch the circulating supply
+            let base = 892104200;
+            let twitch = Math.floor(Math.random() * 500);
+            document.getElementById('circ-supply').innerText = (base - twitch).toLocaleString();
+        }, 1000);
+
+    </script>
+</body>
+</html>
