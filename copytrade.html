@@ -2,13 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>DEGEN_AI // WHALE_MIRROR</title>
+    <title>DEGEN_AI // WHALE_MONITOR</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <style>
         :root {
             --neon-green: #00ff41;
             --neon-red: #ff003c;
             --neon-blue: #0088ff;
+            --neon-yellow: #ffd700;
             --bg-color: #050505;
             --panel-bg: rgba(0, 10, 0, 0.9);
             --border: 1px solid rgba(0, 255, 65, 0.3);
@@ -24,7 +26,7 @@
         /* LAYOUT */
         .container {
             display: grid;
-            grid-template-columns: 350px 1fr 350px;
+            grid-template-columns: 350px 1fr 400px;
             grid-template-rows: 70px 1fr;
             height: 100vh;
             padding: 15px;
@@ -44,85 +46,31 @@
         .panel-header { background: rgba(0,255,65,0.1); padding: 8px; font-size: 0.75rem; border-bottom: var(--border); display: flex; justify-content: space-between; font-weight: bold; letter-spacing: 1px; }
 
         /* INPUT SECTION */
-        .search-box {
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-        input { 
-            background: #000; 
-            border: 1px solid var(--neon-green); 
-            color: #fff; 
-            padding: 15px; 
-            font-family: inherit; 
-            font-size: 1rem; 
-            outline: none; 
-            text-align: center;
-        }
+        .search-box { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        input { background: #000; border: 1px solid var(--neon-green); color: #fff; padding: 15px; font-family: inherit; font-size: 1rem; outline: none; text-align: center; }
         input:focus { box-shadow: 0 0 15px rgba(0,255,65,0.3); }
 
-        .btn { 
-            background: var(--neon-green); 
-            color: #000; 
-            padding: 15px; 
-            border: none; 
-            font-weight: bold; 
-            cursor: pointer; 
-            font-size: 1.1rem;
-            transition: 0.3s;
-        }
+        .btn { background: var(--neon-green); color: #000; padding: 15px; border: none; font-weight: bold; cursor: pointer; font-size: 1.1rem; transition: 0.3s; }
         .btn:hover { background: #fff; box-shadow: 0 0 20px #fff; }
 
-        /* TARGET PROFILE */
-        #target-profile {
-            display: none; /* Hidden until search */
-            flex-direction: column;
-            align-items: center;
-            padding: 30px;
-            text-align: center;
-            height: 100%;
-        }
-        .pnl-huge { font-size: 4rem; font-weight: 900; color: var(--neon-green); text-shadow: 0 0 20px var(--neon-green); margin: 20px 0; }
-        .tag { background: #333; color: #fff; padding: 5px 10px; font-size: 0.8rem; margin: 5px; display: inline-block; }
-
-        /* TOGGLE SWITCH */
-        .switch-container {
-            margin-top: auto;
-            padding: 30px;
-            border-top: 1px solid #333;
-            text-align: center;
-        }
-        .switch-btn {
-            background: #222;
-            color: #555;
-            border: 2px solid #555;
-            padding: 20px 40px;
-            font-size: 1.5rem;
-            font-weight: 900;
-            cursor: pointer;
-            width: 100%;
-            transition: 0.3s;
-        }
-        .switch-btn.active {
-            background: var(--neon-green);
-            color: #000;
-            border-color: #fff;
-            box-shadow: 0 0 30px var(--neon-green);
-            animation: pulse 1s infinite;
-        }
+        /* MONITOR DISPLAY */
+        #monitor-display { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 40px; }
+        .balance-huge { font-size: 3.5rem; font-weight: 900; color: #fff; margin: 20px 0; text-shadow: 0 0 20px rgba(255,255,255,0.3); }
+        .status-dot { width: 15px; height: 15px; background: #333; border-radius: 50%; display: inline-block; margin-right: 10px; }
+        .status-dot.live { background: var(--neon-red); box-shadow: 0 0 15px var(--neon-red); animation: pulse 1s infinite; }
 
         /* LIVE LOG */
-        #copy-log { padding: 10px; overflow-y: auto; font-size: 0.8rem; height: 100%; }
-        .log-item { padding: 5px 0; border-bottom: 1px solid #222; color: #888; }
+        #tx-log { padding: 10px; overflow-y: auto; font-size: 0.8rem; height: 100%; font-family: 'Courier New', monospace; }
+        .log-item { padding: 8px 0; border-bottom: 1px solid #222; color: #888; display: flex; justify-content: space-between; }
         .log-item span { color: #fff; }
+        .log-time { color: #555; font-size: 0.7rem; }
 
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
-        
         /* HUD CORNERS */
         .corner { position: absolute; width: 10px; height: 10px; border-style: solid; border-color: var(--neon-green); pointer-events: none; }
         .tl { top: 0; left: 0; border-width: 2px 0 0 2px; }
         .br { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -140,64 +88,51 @@
                 <a href="index.html">COMMAND</a>
                 <a href="terminal.html">TERMINAL</a>
                 <a href="data.html">DATA</a>
-                <a href="copytrade.html" style="color:var(--neon-green)">MIRROR</a>
+                <a href="copytrade.html" style="color:var(--neon-green)">MONITOR</a>
             </div>
         </header>
 
         <div class="panel">
             <div class="corner tl"></div><div class="corner br"></div>
-            <div class="panel-header"><span>TARGET_ACQUISITION</span><span>SOL_SCANNER</span></div>
+            <div class="panel-header"><span>TARGET_SELECTION</span><span>PUBLIC_KEY</span></div>
             <div class="search-box">
-                <div style="font-size:0.8rem; color:#aaa;">ENTER WALLET ADDRESS:</div>
-                <input type="text" id="wallet-input" placeholder="Dt7r...pump">
-                <button class="btn" onclick="scanWallet()">SCAN WALLET</button>
+                <div style="font-size:0.8rem; color:#aaa;">PASTE WALLET ADDRESS:</div>
+                <input type="text" id="wallet-input" placeholder="Enter Solana Address...">
+                <button class="btn" onclick="startMonitor()">INITIALIZE UPLINK</button>
             </div>
-            <div id="scan-status" style="padding:20px; text-align:center; color:var(--neon-blue); display:none;">
-                > ANALYZING ON-CHAIN HISTORY...<br>
-                > CALCULATING WIN RATE...
+            <div style="padding:20px; font-size:0.8rem; color:#666; line-height:1.6;">
+                > CONNECTS TO MAINNET RPC<br>
+                > OPENS WEBSOCKET STREAM<br>
+                > ALERTS ON BALANCE CHANGE
             </div>
         </div>
 
         <div class="panel">
-            <div class="panel-header"><span>INSIDER_METRICS</span><span>AI_VERIFIED</span></div>
+            <div class="panel-header"><span>LIVE_SURVEILLANCE</span><span>WSS_CONNECTED</span></div>
             
-            <div id="target-profile">
-                <div style="font-size:1.2rem; margin-bottom:10px;">TARGET: <span style="color:#fff;" id="target-addr">---</span></div>
-                <div>
-                    <span class="tag" style="background:var(--neon-blue)">SMART_MONEY</span>
-                    <span class="tag" style="background:var(--neon-red)">EARLY_BUYER</span>
-                </div>
-                
-                <div style="margin-top:40px; font-size:0.9rem; color:#aaa;">30D PROFIT (REALIZED)</div>
-                <div class="pnl-huge">+4,209%</div>
-                
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; width:100%; margin-top:20px;">
-                    <div style="border:1px solid #333; padding:15px;">
-                        <div style="color:#aaa; font-size:0.8rem;">WIN RATE</div>
-                        <div style="font-size:1.5rem; color:var(--neon-green)">82.4%</div>
-                    </div>
-                    <div style="border:1px solid #333; padding:15px;">
-                        <div style="color:#aaa; font-size:0.8rem;">AVG ROI</div>
-                        <div style="font-size:1.5rem; color:var(--neon-green)">12x</div>
-                    </div>
-                </div>
-
-                <div class="switch-container">
-                    <button class="switch-btn" id="mirror-btn" onclick="toggleMirror()">ACTIVATE MIRROR</button>
-                    <div style="margin-top:10px; font-size:0.7rem; color:#666;">WARNING: GOD MODE ENABLED. HIGH RISK.</div>
-                </div>
+            <div id="initial-state" style="display:flex; justify-content:center; align-items:center; height:100%; color:#444;">
+                WAITING FOR TARGET...
             </div>
 
-            <div id="empty-state" style="display:flex; justify-content:center; align-items:center; height:100%; color:#444;">
-                NO TARGET SELECTED
+            <div id="monitor-display">
+                <div style="font-size:1rem; color:var(--neon-blue); letter-spacing:2px;">TARGET LOCKED</div>
+                <div id="target-address-display" style="font-size:0.9rem; color:#888; margin-bottom:30px;">---</div>
+                
+                <div style="color:#aaa; font-size:0.8rem;">CURRENT HOLDINGS (SOL)</div>
+                <div class="balance-huge" id="sol-balance">0.00</div>
+                
+                <div style="margin-top:40px; display:flex; align-items:center;">
+                    <div class="status-dot" id="status-indicator"></div>
+                    <span id="status-text" style="color:#666; font-weight:bold;">OFFLINE</span>
+                </div>
             </div>
         </div>
 
         <div class="panel">
             <div class="corner tl"></div><div class="corner br"></div>
-            <div class="panel-header"><span>MIRROR_ENGINE</span><span>LOGS</span></div>
-            <div id="copy-log">
-                <div class="log-item">> SYSTEM IDLE...</div>
+            <div class="panel-header"><span>ACTIVITY_LOG</span><span>REALTIME</span></div>
+            <div id="tx-log">
+                <div class="log-item">> WAITING FOR INPUT...</div>
             </div>
         </div>
     </div>
@@ -209,85 +144,109 @@
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
-
-        // TARGETING RETICLE
-        const geometry = new THREE.RingGeometry(4, 4.2, 32);
-        const material = new THREE.MeshBasicMaterial({ color: 0x00ff41, side: THREE.DoubleSide, transparent: true, opacity: 0.5 });
-        const ring = new THREE.Mesh(geometry, material);
-        scene.add(ring);
-
-        const innerGeo = new THREE.RingGeometry(3, 3.05, 32);
-        const innerRing = new THREE.Mesh(innerGeo, material);
-        scene.add(innerRing);
+        
+        // Surveillance Drone Object (Octahedron)
+        const geometry = new THREE.OctahedronGeometry(3, 0);
+        const material = new THREE.MeshBasicMaterial({ color: 0x00ff41, wireframe: true, transparent:true, opacity:0.3 });
+        const drone = new THREE.Mesh(geometry, material);
+        scene.add(drone);
+        
+        // Inner Core
+        const coreGeo = new THREE.OctahedronGeometry(1.5, 0);
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0xff003c, wireframe: false });
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        scene.add(core);
 
         camera.position.z = 10;
 
         function animate() {
             requestAnimationFrame(animate);
-            ring.rotation.z -= 0.005;
-            innerRing.rotation.z += 0.01;
-            // Pulsate
-            const scale = 1 + Math.sin(Date.now() * 0.002) * 0.1;
-            ring.scale.set(scale, scale, 1);
+            drone.rotation.y += 0.005;
+            drone.rotation.z -= 0.002;
+            core.rotation.y -= 0.01;
+            // Pulse effect
+            const scale = 1 + Math.sin(Date.now() * 0.005) * 0.1;
+            core.scale.set(scale, scale, scale);
             renderer.render(scene, camera);
         }
         animate();
 
-        /* --- LOGIC --- */
-        let isMirrored = false;
+        /* --- REAL UTILITY LOGIC --- */
+        let connection;
+        let subscriptionId = null;
 
-        function scanWallet() {
-            const addr = document.getElementById('wallet-input').value;
-            if(!addr) return;
-
-            document.getElementById('scan-status').style.display = 'block';
-            document.getElementById('empty-state').style.display = 'none';
-            document.getElementById('target-profile').style.display = 'none';
-
-            // Fake processing delay
-            setTimeout(() => {
-                document.getElementById('scan-status').style.display = 'none';
-                document.getElementById('target-profile').style.display = 'flex';
-                document.getElementById('target-addr').innerText = addr.substring(0,6) + '...' + addr.substring(addr.length-4);
-                addLog(`TARGET LOCKED: ${addr}`);
-                addLog(`> WIN RATE: 82% // PROFIT: 4209%`);
-            }, 1500);
-        }
-
-        function toggleMirror() {
-            const btn = document.getElementById('mirror-btn');
-            isMirrored = !isMirrored;
+        async function startMonitor() {
+            const address = document.getElementById('wallet-input').value.trim();
+            const logBox = document.getElementById('tx-log');
             
-            if(isMirrored) {
-                btn.classList.add('active');
-                btn.innerText = "MIRROR ACTIVE";
-                addLog(`<span style='color:#0f0'>[SYSTEM] MIRROR ENGINE ENGAGED.</span>`);
-                addLog(`> WAITING FOR TARGET TX...`);
-                startFakeTrades();
-            } else {
-                btn.classList.remove('active');
-                btn.innerText = "ACTIVATE MIRROR";
-                addLog(`<span style='color:red'>[SYSTEM] MIRROR DISENGAGED.</span>`);
+            if (!address || address.length < 30) {
+                logBox.innerHTML = `<div class='log-item' style='color:red'>> ERROR: INVALID ADDRESS</div>` + logBox.innerHTML;
+                return;
             }
-        }
 
-        function addLog(msg) {
-            const log = document.getElementById('copy-log');
-            const div = document.createElement('div');
-            div.className = 'log-item';
-            div.innerHTML = msg;
-            log.prepend(div);
-        }
+            // UI Updates
+            document.getElementById('initial-state').style.display = 'none';
+            document.getElementById('monitor-display').style.display = 'flex';
+            document.getElementById('target-address-display').innerText = address;
+            document.getElementById('status-indicator').classList.add('live');
+            document.getElementById('status-text').innerText = "MONITORING MEMPOOL";
+            document.getElementById('status-text').style.color = "var(--neon-red)";
+            
+            logBox.innerHTML = `<div class='log-item' style='color:var(--neon-blue)'>> INITIALIZING UPLINK...</div>` + logBox.innerHTML;
 
-        function startFakeTrades() {
-            if(!isMirrored) return;
-            setTimeout(() => {
-                if(isMirrored) {
-                    addLog(`> TARGET BOUGHT <span style="color:#0f0">$WIF</span> @ $2.14`);
-                    addLog(`> <span style="color:#0f0">COPY-TRADE EXECUTED: 2.5 SOL</span>`);
-                    startFakeTrades();
-                }
-            }, Math.random() * 5000 + 2000);
+            try {
+                // 1. Connect to Solana Mainnet
+                connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com", "confirmed");
+                const publicKey = new solanaWeb3.PublicKey(address);
+
+                // 2. Fetch Initial Balance
+                const balance = await connection.getBalance(publicKey);
+                const solBalance = (balance / 1000000000).toFixed(4);
+                document.getElementById('sol-balance').innerText = solBalance;
+                
+                logBox.innerHTML = `<div class='log-item'>> BALANCE FETCHED: ${solBalance} SOL</div>` + logBox.innerHTML;
+
+                // 3. Open WebSocket Listener (Real-Time)
+                if (subscriptionId) await connection.removeAccountChangeListener(subscriptionId);
+                
+                subscriptionId = connection.onAccountChange(
+                    publicKey,
+                    (updatedAccountInfo, context) => {
+                        // This triggers whenever the wallet sends or receives SOL/Tokens
+                        const newBal = (updatedAccountInfo.lamports / 1000000000).toFixed(4);
+                        document.getElementById('sol-balance').innerText = newBal;
+                        
+                        // Visual Alert
+                        const timestamp = new Date().toLocaleTimeString();
+                        const color = newBal > solBalance ? "var(--neon-green)" : "var(--neon-red)";
+                        const action = newBal > solBalance ? "RECEIVED" : "SENT";
+                        
+                        const alertHtml = `
+                            <div class='log-item' style='border-color:${color}'>
+                                <span style='color:${color}'>[ALERT] MOVEMENT DETECTED</span>
+                                <span class='log-time'>${timestamp}</span>
+                            </div>
+                            <div class='log-item' style='font-size:0.7rem; color:#aaa;'>
+                                > NEW BALANCE: ${newBal} SOL
+                            </div>
+                        `;
+                        logBox.innerHTML = alertHtml + logBox.innerHTML;
+                        
+                        // Flash the Core
+                        core.material.color.setHex(newBal > solBalance ? 0x00ff41 : 0xff003c);
+                        setTimeout(() => core.material.color.setHex(0xff003c), 500);
+                    },
+                    "confirmed"
+                );
+
+                logBox.innerHTML = `<div class='log-item' style='color:var(--neon-green)'>> WEBSOCKET STREAM ACTIVE</div>` + logBox.innerHTML;
+
+            } catch (err) {
+                console.error(err);
+                logBox.innerHTML = `<div class='log-item' style='color:red'>> CONNECTION ERROR: ${err.message}</div>` + logBox.innerHTML;
+                document.getElementById('status-text').innerText = "CONNECTION FAILED";
+                document.getElementById('status-indicator').classList.remove('live');
+            }
         }
     </script>
 </body>
