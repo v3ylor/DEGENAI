@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>DEGEN_AI // RUG_DETECTOR</title>
+    <title>DEGEN_AI // RUG_DETECTOR_PRO</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root {
@@ -17,8 +17,15 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: var(--bg-color); color: var(--neon-green); font-family: var(--font); overflow: hidden; height: 100vh; }
         
-        #canvas-container { position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.4; }
+        /* ATMOSPHERE */
+        #canvas-container { position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.6; transition: opacity 0.5s; }
         .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%); background-size: 100% 4px; pointer-events: none; z-index: 99; opacity: 0.3; }
+        .matrix-bg {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2;
+            background-image: url('https://i.imgur.com/0f80760.png'); /* Subtle hex code texture */
+            opacity: 0.1; animation: scrollDown 20s linear infinite;
+        }
+        @keyframes scrollDown { from { background-position: 0 0; } to { background-position: 0 1000px; } }
 
         .container {
             display: grid;
@@ -33,37 +40,53 @@
         .brand-container { display: flex; align-items: center; gap: 15px; }
         .logo { height: 30px; width: auto; filter: drop-shadow(0 0 5px var(--neon-green)); }
         .brand-text { font-size: 1.2rem; font-weight: 900; letter-spacing: 2px; color: #fff; text-shadow: 0 0 10px var(--neon-green); }
-        .nav-links a { color: #555; text-decoration: none; margin-left: 20px; font-weight: bold; font-size: 1.1rem; }
+        .nav-links a { color: #555; text-decoration: none; margin-left: 20px; font-weight: bold; font-size: 1.1rem; transition: 0.3s; }
         .nav-links a:hover, .nav-links a.active { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
 
-        .panel { background: var(--panel-bg); border: var(--border); position: relative; display: flex; flex-direction: column; overflow: hidden; }
+        .panel { background: var(--panel-bg); border: var(--border); position: relative; display: flex; flex-direction: column; overflow: hidden; backdrop-filter: blur(5px); transition: all 0.5s ease; }
         .panel-header { background: rgba(0,255,65,0.1); padding: 8px; font-size: 0.75rem; border-bottom: var(--border); display: flex; justify-content: space-between; font-weight: bold; letter-spacing: 1px; }
 
         /* INPUT AREA */
         .search-box { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-        input { background: #000; border: 1px solid var(--neon-green); color: #fff; padding: 15px; font-family: inherit; font-size: 0.9rem; outline: none; text-align: center; }
-        .btn { background: var(--neon-green); color: #000; padding: 15px; border: none; font-weight: bold; cursor: pointer; font-size: 1.1rem; transition: 0.3s; }
-        .btn:hover { background: #fff; box-shadow: 0 0 20px #fff; }
+        input { background: #000; border: 1px solid var(--neon-green); color: #fff; padding: 15px; font-family: inherit; font-size: 0.9rem; outline: none; text-align: center; transition: 0.3s; }
+        input:focus { box-shadow: 0 0 20px rgba(0,255,65,0.5); border-color: #fff; }
+        .btn { background: var(--neon-green); color: #000; padding: 15px; border: none; font-weight: bold; cursor: pointer; font-size: 1.1rem; transition: 0.3s; clip-path: polygon(5% 0, 100% 0, 95% 100%, 0% 100%); }
+        .btn:hover { background: #fff; box-shadow: 0 0 30px var(--neon-green); transform: scale(1.02); }
+
+        /* LOADING SEQUENCE */
+        #scan-sequence { display: none; flex-direction: column; justify-content: center; align-items: center; height: 100%; font-family: monospace; }
+        .scan-step { margin: 5px 0; opacity: 0; }
+        .scan-step.active { opacity: 1; color: var(--neon-yellow); }
+        .scan-step.done { opacity: 1; color: var(--neon-green); }
+        .blinking-cursor { animation: blink 0.5s infinite; }
 
         /* AUDIT DISPLAY */
-        #audit-result { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 20px; }
+        #audit-result { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 20px; animation: fadeIn 0.5s ease-out; }
         .score-circle { 
-            width: 150px; height: 150px; 
-            border: 5px solid var(--neon-green); 
+            width: 160px; height: 160px; 
+            border: 8px solid var(--neon-green); 
             border-radius: 50%; 
             display: flex; flex-direction: column;
             justify-content: center; align-items: center;
             margin: 20px 0;
-            box-shadow: 0 0 30px rgba(0,255,65,0.2);
+            box-shadow: 0 0 50px rgba(0,255,65,0.3), inset 0 0 20px rgba(0,255,65,0.3);
+            background: rgba(0,0,0,0.5);
+            transition: all 0.5s;
         }
-        .score-val { font-size: 3rem; font-weight: 900; color: #fff; }
-        .score-label { font-size: 0.8rem; color: var(--neon-green); }
+        .score-val { font-size: 3.5rem; font-weight: 900; color: #fff; text-shadow: 0 0 10px currentColor; }
+        .score-label { font-size: 0.7rem; letter-spacing: 2px; margin-top: 5px; }
         
-        .verdict { font-size: 2rem; font-weight: 900; margin-top: 10px; letter-spacing: 2px; }
+        .verdict { font-size: 2.2rem; font-weight: 900; margin-top: 10px; letter-spacing: 3px; text-transform: uppercase; text-shadow: 0 0 20px currentColor; }
         .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; margin-top: 30px; }
-        .detail-box { border: 1px solid #333; padding: 10px; text-align: left; }
-        .detail-label { font-size: 0.7rem; color: #888; }
-        .detail-val { font-size: 1.1rem; color: #fff; font-weight: bold; }
+        .detail-box { border: 1px solid rgba(255,255,255,0.1); padding: 15px; text-align: left; background: rgba(0,0,0,0.3); }
+        .detail-label { font-size: 0.7rem; color: #888; letter-spacing: 1px; margin-bottom: 5px; }
+        .detail-val { font-size: 1.2rem; color: #fff; font-weight: bold; text-shadow: 0 0 5px var(--neon-green); }
+
+        /* ANIMATIONS */
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+        .flash-red { animation: flashRed 1s infinite alternate; }
+        @keyframes flashRed { from { box-shadow: 0 0 20px var(--neon-red) inset; border-color: var(--neon-red); } to { box-shadow: 0 0 50px var(--neon-red) inset; border-color: #fff; } }
 
         .corner { position: absolute; width: 10px; height: 10px; border-style: solid; border-color: var(--neon-green); pointer-events: none; }
         .tl { top: 0; left: 0; border-width: 2px 0 0 2px; }
@@ -74,6 +97,7 @@
 
     <div id="canvas-container"></div>
     <div class="scanlines"></div>
+    <div class="matrix-bg"></div>
 
     <div class="container">
         <header>
@@ -85,39 +109,49 @@
                 <a href="index.html">COMMAND</a>
                 <a href="terminal.html">TERMINAL</a>
                 <a href="data.html">DATA</a>
-                <a href="audit.html" style="color:var(--neon-green)">AUDIT</a>
+                <a href="audit.html" class="active" style="color:var(--neon-green)">AUDIT</a>
             </div>
         </header>
 
         <div class="panel">
             <div class="corner tl"></div><div class="corner br"></div>
-            <div class="panel-header"><span>TARGET_TOKEN</span><span>CONTRACT_ADDRESS</span></div>
+            <div class="panel-header"><span>TARGET_TOKEN</span><span>ENTER_CONTRACT</span></div>
             <div class="search-box">
-                <div style="font-size:0.8rem; color:#aaa;">PASTE TOKEN ADDRESS (CA):</div>
+                <div style="font-size:0.8rem; color:#aaa; letter-spacing: 1px;">PASTE CA (SOLANA):</div>
                 <input type="text" id="ca-input" placeholder="e.g. Dt7r...pump">
-                <button class="btn" onclick="runAudit()">INITIATE SCAN</button>
+                <button class="btn" onclick="runHollywoodAudit()">INITIATE DEEP SCAN</button>
             </div>
-            <div style="padding:20px; font-size:0.8rem; color:#666; line-height:1.6;">
-                > LIQUIDITY ANALYSIS<br>
-                > FDV VS. MCAP CHECK<br>
-                > RUG PROBABILITY CALC
+            <div style="padding:20px; font-size:0.8rem; color:#aaa; line-height:1.8; letter-spacing: 1px;">
+                <div style="color:var(--neon-green)">> ADVANCED AI ANALYSIS</div>
+                > CHECKING LIQUIDITY LOCKS<br>
+                > ANALYZING HOLDER DISTRIBUTION<br>
+                > CALCULATING RUG PROBABILITY
             </div>
         </div>
 
-        <div class="panel">
-            <div class="panel-header"><span>AUDIT_RESULTS</span><span>AI_VERIFIED</span></div>
+        <div class="panel" id="main-panel">
+            <div class="panel-header"><span>AUDIT_RESULTS</span><span>AI_VERIFIED_V4</span></div>
             
-            <div id="loading" style="display:none; justify-content:center; align-items:center; height:100%; color:var(--neon-green);">
-                > ANALYZING ON-CHAIN METRICS...
+            <div id="idle-msg" style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; color:#444; letter-spacing: 2px;">
+                <div style="font-size:3rem; margin-bottom:20px; opacity:0.3;">[WAITING]</div>
+                ENTER CONTRACT TO BEGIN SCAN
+            </div>
+
+            <div id="scan-sequence">
+                <div class="scan-step" id="step1">> INITIALIZING NEURAL NET...</div>
+                <div class="scan-step" id="step2">> QUERYING BLOCKCHAIN NODES...</div>
+                <div class="scan-step" id="step3">> ANALYZING LIQUIDITY POOL STRUCTURE...</div>
+                <div class="scan-step" id="step4">> CALCULATING HOLDER CONCENTRATION...</div>
+                <div class="scan-step" id="step5">> FINALIZING RISK ASSESSMENT... <span class="blinking-cursor">_</span></div>
             </div>
 
             <div id="audit-result">
                 <div class="score-circle" id="score-circle">
                     <span class="score-val" id="score-text">0</span>
-                    <span class="score-label">SAFETY SCORE</span>
+                    <span class="score-label">DEGEN_TRUST_SCORE</span>
                 </div>
                 
-                <div class="verdict" id="verdict-text">WAITING...</div>
+                <div class="verdict" id="verdict-text">---</div>
                 
                 <div class="details-grid">
                     <div class="detail-box">
@@ -125,136 +159,192 @@
                         <div class="detail-val" id="liq-val">---</div>
                     </div>
                     <div class="detail-box">
-                        <div class="detail-label">MARKET CAP</div>
+                        <div class="detail-label">FDV (FULLY DILUTED)</div>
                         <div class="detail-val" id="mcap-val">---</div>
                     </div>
                     <div class="detail-box">
-                        <div class="detail-label">PRICE CHANGE (1H)</div>
+                        <div class="detail-label">1H PRICE IMPACT</div>
                         <div class="detail-val" id="price-change">---</div>
                     </div>
                     <div class="detail-box">
-                        <div class="detail-label">VOLATILITY INDEX</div>
+                        <div class="detail-label">LIQUIDITY RATIO</div>
                         <div class="detail-val" id="vol-val">---</div>
                     </div>
                 </div>
-            </div>
-            
-            <div id="idle-msg" style="display:flex; justify-content:center; align-items:center; height:100%; color:#444;">
-                ENTER CONTRACT TO SCAN
             </div>
         </div>
 
         <div class="panel">
             <div class="corner tl"></div><div class="corner br"></div>
-            <div class="panel-header"><span>SYSTEM_LOG</span><span>LIVE</span></div>
-            <div id="audit-log" style="padding:15px; font-size:0.8rem; color:#888;">
-                > SYSTEM READY.
+            <div class="panel-header"><span>SYSTEM_LOG</span><span>LIVE_FEED</span></div>
+            <div id="audit-log" style="padding:15px; font-size:0.8rem; color:#666; font-family:monospace; overflow-y: auto; height: 100%;">
+                > SYSTEM READY. AWAITING TARGET.
             </div>
         </div>
     </div>
 
     <script>
-        /* --- 3D VISUAL --- */
+        /* --- 3D VISUAL (More Intense) --- */
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
         
-        // Shield Geometry
-        const geometry = new THREE.IcosahedronGeometry(2.5, 1);
-        const material = new THREE.MeshBasicMaterial({ color: 0x00ff41, wireframe: true, transparent:true, opacity:0.1 });
+        // Complex Shield
+        const geometry = new THREE.IcosahedronGeometry(2.8, 1);
+        const material = new THREE.MeshBasicMaterial({ color: 0x00ff41, wireframe: true, transparent:true, opacity:0.2 });
         const shield = new THREE.Mesh(geometry, material);
         scene.add(shield);
+        
+        const coreGeo = new THREE.OctahedronGeometry(1.5, 2);
+        const coreMat = new THREE.MeshBasicMaterial({ color: 0x00ff41, wireframe: true });
+        const core = new THREE.Mesh(coreGeo, coreMat);
+        scene.add(core);
+
         camera.position.z = 8;
+
+        let scanSpeed = 0.002;
 
         function animate() {
             requestAnimationFrame(animate);
-            shield.rotation.y += 0.002;
-            shield.rotation.z -= 0.001;
+            shield.rotation.y += scanSpeed;
+            shield.rotation.z -= scanSpeed/2;
+            core.rotation.x -= scanSpeed*2;
+            core.rotation.y += scanSpeed*2;
             renderer.render(scene, camera);
         }
         animate();
 
-        /* --- AUDIT LOGIC --- */
-        async function runAudit() {
+        /* --- HOLLYWOOD AUDIT LOGIC --- */
+        async function runHollywoodAudit() {
             const ca = document.getElementById('ca-input').value.trim();
             if(!ca) return;
 
-            // UI Reset
+            // 1. Reset UI & Start "Sequence"
             document.getElementById('idle-msg').style.display = 'none';
             document.getElementById('audit-result').style.display = 'none';
-            document.getElementById('loading').style.display = 'flex';
-            addLog(`> INITIATING SCAN FOR: ${ca.slice(0,6)}...`);
+            document.getElementById('scan-sequence').style.display = 'flex';
+            resetScanSteps();
+            
+            // Intensify 3D & Logs
+            scanSpeed = 0.02; // Speed up 3D
+            document.getElementById('canvas-container').style.opacity = 0.8;
+            addLog(`> INITIATING DEEP SCAN PROTOCOL: ${ca.slice(0,6)}...`, 'var(--neon-green)');
 
             try {
-                // 1. Fetch from DexScreener (Reliable & Free)
+                // 2. Real API Call (happens fast)
                 const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
                 const data = await res.json();
-
-                if(!data.pairs || data.pairs.length === 0) {
-                    throw new Error("TOKEN NOT FOUND OR NO LIQUIDITY");
-                }
-
+                if(!data.pairs || data.pairs.length === 0) throw new Error("TOKEN DATA NOT FOUND");
                 const pair = data.pairs[0];
-                const liq = pair.liquidity.usd;
-                const mcap = pair.fdv;
-                const change1h = pair.priceChange.h1;
-                
-                // 2. AI Scoring Logic
-                let score = 50; // Start neutral
-                let verdict = "NEUTRAL";
-                let color = "var(--neon-yellow)";
 
-                // Liquidity Check
-                if(liq > 100000) score += 20;
-                else if(liq < 5000) score -= 30;
+                // 3. "Hollywood" Scan Delay (Theatrics)
+                await runScanTheatrics();
 
-                // Market Cap Check
-                if(mcap > 500000) score += 10;
+                // 4. Calculate Score & Verdict
+                const results = calculateRisk(pair);
 
-                // Volatility Check (Pump/Dump)
-                if(Math.abs(change1h) > 30) score -= 15; // Too volatile
-                else score += 10; // Stable
-
-                // Final Bounds
-                score = Math.max(0, Math.min(100, score));
-
-                // Determine Verdict
-                if(score > 80) { verdict = "SAFE TO APE"; color = "var(--neon-green)"; }
-                else if(score > 40) { verdict = "HIGH RISK"; color = "var(--neon-yellow)"; }
-                else { verdict = "LIKELY RUG"; color = "var(--neon-red)"; }
-
-                // 3. Render Results
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('audit-result').style.display = 'flex';
-                
-                document.getElementById('score-text').innerText = score;
-                document.getElementById('score-text').style.color = color;
-                document.getElementById('score-circle').style.borderColor = color;
-                document.getElementById('score-circle').style.boxShadow = `0 0 30px ${color}`;
-                
-                document.getElementById('verdict-text').innerText = verdict;
-                document.getElementById('verdict-text').style.color = color;
-
-                document.getElementById('liq-val').innerText = "$" + liq.toLocaleString();
-                document.getElementById('mcap-val').innerText = "$" + mcap.toLocaleString();
-                document.getElementById('price-change').innerText = change1h + "%";
-                document.getElementById('vol-val').innerText = (mcap / liq).toFixed(2); // MCap/Liq Ratio
-
-                // Update 3D Shield Color
-                shield.material.color.setHex(score > 50 ? 0x00ff41 : 0xff003c);
-
-                addLog(`> SCAN COMPLETE. SCORE: ${score}/100`);
-                addLog(`> VERDICT: ${verdict}`);
+                // 5. Dramatic Reveal
+                revealResults(results, pair);
 
             } catch(err) {
-                document.getElementById('loading').style.display = 'none';
-                addLog(`> ERROR: ${err.message}`, 'red');
+                resetUIOnError();
+                addLog(`> SCAN FAILED: ${err.message}`, 'var(--neon-red)');
             }
         }
 
-        function addLog(msg, color='#888') {
+        //--- HELPERS ---//
+
+        async function runScanTheatrics() {
+             const steps = ['step1', 'step2', 'step3', 'step4', 'step5'];
+             for(let i=0; i<steps.length; i++) {
+                 const step = document.getElementById(steps[i]);
+                 step.classList.add('active');
+                 if(i > 0) document.getElementById(steps[i-1]).classList.remove('active', 'done');
+                 if(i > 0) document.getElementById(steps[i-1]).classList.add('done');
+                 addLog(step.innerText.replace('_',''));
+                 await new Promise(r => setTimeout(r, 800)); // Fake delay between steps
+             }
+        }
+
+        function calculateRisk(pair) {
+            const liq = pair.liquidity.usd;
+            const mcap = pair.fdv;
+            let score = 50;
+            
+            if(liq > 200000) score += 25; else if(liq < 10000) score -= 35;
+            if(mcap > 1000000) score += 15; else if(mcap < 50000) score -= 10;
+            const ratio = mcap / liq;
+            if(ratio > 20) score -= 20; // High MCAP, low liq = dangerous
+            
+            score = Math.max(5, Math.min(99, score)); // Clamp 5-99
+            
+            let verdict, color;
+            if(score >= 85) { verdict = "MAX_BID // APE_SAFE"; color = "var(--neon-green)"; }
+            else if(score >= 50) { verdict = "VOLATILE // CAUTION"; color = "var(--neon-yellow)"; }
+            else { verdict = "RUG IMMINENT // EVACUATE"; color = "var(--neon-red)"; }
+            
+            return { score, verdict, color, ratio };
+        }
+
+        function revealResults(results, pair) {
+            document.getElementById('scan-sequence').style.display = 'none';
+            document.getElementById('audit-result').style.display = 'flex';
+            
+            // Reset 3D speed
+            scanSpeed = 0.002;
+            document.getElementById('canvas-container').style.opacity = 0.4;
+
+            // Update Colors & Text
+            const circle = document.getElementById('score-circle');
+            const scoreTxt = document.getElementById('score-text');
+            const verdictTxt = document.getElementById('verdict-text');
+            const mainPanel = document.getElementById('main-panel');
+
+            circle.style.borderColor = results.color;
+            circle.style.boxShadow = `0 0 50px ${results.color}, inset 0 0 20px ${results.color}`;
+            scoreTxt.style.color = results.color;
+            verdictTxt.style.color = results.color;
+            verdictTxt.innerText = results.verdict;
+
+            // Update 3D Core Color
+            core.material.color.setStyle(results.color);
+            shield.material.color.setStyle(results.color);
+
+            // Alarm effect for bad score
+            if(results.score < 50) mainPanel.classList.add('flash-red'); else mainPanel.classList.remove('flash-red');
+
+            // Fill Data
+            document.getElementById('liq-val').innerText = "$" + pair.liquidity.usd.toLocaleString();
+            document.getElementById('mcap-val').innerText = "$" + pair.fdv.toLocaleString();
+            document.getElementById('price-change').innerText = pair.priceChange.h1 + "%";
+            document.getElementById('vol-val').innerText = results.ratio.toFixed(1) + "x";
+
+            // Animate Score Count-up
+            let currentScore = 0;
+            const counter = setInterval(() => {
+                currentScore += 3;
+                if(currentScore >= results.score) {
+                    currentScore = results.score;
+                    clearInterval(counter);
+                    addLog(`> SCAN COMPLETE. FINAL SCORE: ${results.score}`, results.color);
+                }
+                scoreTxt.innerText = currentScore;
+            }, 30);
+        }
+
+        function resetScanSteps() {
+            document.querySelectorAll('.scan-step').forEach(el => el.classList.remove('active', 'done'));
+        }
+
+        function resetUIOnError() {
+            document.getElementById('scan-sequence').style.display = 'none';
+            document.getElementById('idle-msg').style.display = 'flex';
+            scanSpeed = 0.002;
+        }
+
+        function addLog(msg, color='#666') {
             const logBox = document.getElementById('audit-log');
             logBox.innerHTML += `<div style="margin-bottom:5px; color:${color}">${msg}</div>`;
             logBox.scrollTop = logBox.scrollHeight;
