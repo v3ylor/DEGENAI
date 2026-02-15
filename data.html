@@ -117,11 +117,11 @@
                 </div>
             </div>
             <div style="padding: 15px; margin-top: auto; border-top: 1px solid #333;">
-                <div class="metric-label">BURN_RATE (24H)</div>
+                <div class="metric-label">TOTAL BURNED (REAL)</div>
                 <div style="height: 5px; background: #333; margin-top: 5px; position: relative;">
-                    <div style="width: 45%; height: 100%; background: var(--neon-red); box-shadow: 0 0 10px red;"></div>
+                    <div id="burn-bar" style="width: 0%; height: 100%; background: var(--neon-red); box-shadow: 0 0 10px red; transition: width 1s;"></div>
                 </div>
-                <div style="text-align: right; font-size: 0.8rem; margin-top: 5px; color: var(--neon-red);">452,000 TOKENS</div>
+                <div id="burn-val" style="text-align: right; font-size: 0.8rem; margin-top: 5px; color: var(--neon-red);">CALCULATING...</div>
             </div>
         </div>
 
@@ -134,11 +134,11 @@
         </div>
 
         <div class="panel distribution">
-            <div class="pie-chart"></div>
+            <div class="pie-chart" id="pie-visual"></div>
             <div class="legend">
-                <div><span class="dot" style="background:var(--neon-green)"></span> PUBLIC (60%)</div>
-                <div><span class="dot" style="background:var(--neon-blue)"></span> TREASURY (20%)</div>
-                <div><span class="dot" style="background:var(--neon-red)"></span> BURNED (20%)</div>
+                <div><span class="dot" style="background:var(--neon-green)"></span> PUBLIC</div>
+                <div><span class="dot" style="background:var(--neon-blue)"></span> TREASURY</div>
+                <div><span class="dot" style="background:var(--neon-red)"></span> BURNED</div>
             </div>
             <div style="margin-left: auto; font-size: 0.8rem; text-align: right;">
                 <div style="color: #aaa;">CONTRACT:</div>
@@ -200,44 +200,78 @@
         }
         drawChart();
 
-        /* --- 3. SMART HYBRID DATA SYSTEM --- */
+        /* --- 3. DATA & BURN CALCULATOR --- */
         const MINT_ADDRESS = 'Dt7rNPRfpmf4P8QvWQgyh5S7pnp4nQWYUmUwrarwpump';
+        const INCINERATOR_ADDRESS = '1nc1nerator11111111111111111111111111111111';
+        const INITIAL_SUPPLY = 1000000000; // 1 Billion
         const whaleList = document.getElementById('whale-list');
         const statusLabel = document.getElementById('data-status');
 
-        async function fetchRealWhales() {
+        async function fetchChainData() {
             try {
                 statusLabel.innerText = "RPC_SYNC...";
                 
-                // 1. Attempt Connection to Solana Public Node
+                // 1. Connection
                 const connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com", 'confirmed');
                 const mint = new solanaWeb3.PublicKey(MINT_ADDRESS);
                 
-                // 2. Fetch Top 20 Token Accounts
-                const largestAccounts = await connection.getTokenLargestAccounts(mint);
+                // 2. Fetch Current Supply (Checks for Formal Burns)
+                const supplyInfo = await connection.getTokenSupply(mint);
+                const currentSupply = supplyInfo.value.uiAmount;
+                const formalBurn = INITIAL_SUPPLY - currentSupply;
+
+                // 3. Fetch Incinerator Balance (Checks for Informal Burns)
+                let informalBurn = 0;
+                try {
+                    const incineratorPubkey = new solanaWeb3.PublicKey(INCINERATOR_ADDRESS);
+                    const incineratorAccounts = await connection.getTokenAccountsByOwner(incineratorPubkey, { mint: mint });
+                    
+                    if (incineratorAccounts.value.length > 0) {
+                        // Sum up all accounts (usually just one)
+                        for (let acc of incineratorAccounts.value) {
+                            const balanceInfo = await connection.getTokenAccountBalance(acc.pubkey);
+                            informalBurn += balanceInfo.value.uiAmount;
+                        }
+                    }
+                } catch(e) { console.log("Incinerator empty or error", e); }
+
+                // 4. Calculate Total Burn
+                const totalBurned = formalBurn + informalBurn;
+                const burnPercent = (totalBurned / INITIAL_SUPPLY) * 100;
+                const circulating = currentSupply - informalBurn;
+
+                // 5. Update UI
+                document.getElementById('circ-supply').innerText = circulating.toLocaleString(undefined, {maximumFractionDigits: 0});
                 
-                // 3. Render REAL Data
+                // Update Burn Bar
+                document.getElementById('burn-bar').style.width = `${Math.max(1, burnPercent)}%`; // Min 1% for visibility
+                document.getElementById('burn-val').innerText = `${totalBurned.toLocaleString(undefined, {maximumFractionDigits: 0})} (${burnPercent.toFixed(2)}%)`;
+
+                // Update Pie Chart Visual
+                const pPub = (circulating/INITIAL_SUPPLY)*100;
+                const pBurn = burnPercent;
+                const pTreasury = 100 - pPub - pBurn;
+                document.getElementById('pie-visual').style.background = `conic-gradient(var(--neon-green) 0% ${pPub}%, var(--neon-blue) ${pPub}% ${pPub+pTreasury}%, var(--neon-red) ${pPub+pTreasury}% 100%)`;
+
+                // 6. Fetch Top Holders
+                const largestAccounts = await connection.getTokenLargestAccounts(mint);
                 renderWhaleList(largestAccounts.value.map((acc, i) => ({
                     address: acc.address.toString(),
-                    percent: (acc.uiAmount / 1000000000) * 100, // Assuming 1B supply
+                    percent: (acc.uiAmount / INITIAL_SUPPLY) * 100,
                     rank: i
                 })));
                 
                 statusLabel.innerText = "LIVE_RPC";
                 statusLabel.style.color = "#0f0";
-                document.getElementById('circ-supply').innerText = "892,104,200"; // Can be dynamic later
 
             } catch (err) {
-                // 4. FALLBACK: IF RATE LIMIT HIT, USE REALISTIC SIMULATION
-                console.warn("RPC Rate Limit Hit - Switching to Simulation Mode");
+                console.warn("RPC Limit:", err);
                 statusLabel.innerText = "SIM_NET (BACKUP)";
                 statusLabel.style.color = "var(--neon-blue)";
                 generateRealisticWhales();
-                document.getElementById('circ-supply').innerText = "892,104,200";
             }
         }
 
-        /* --- RENDER FUNCTIONS --- */
         function renderWhaleList(data) {
             whaleList.innerHTML = '';
             data.forEach((w, index) => {
@@ -259,43 +293,26 @@
             });
         }
 
-        /* --- FALLBACK GENERATOR (Looks exactly like real data) --- */
         function generateRealisticWhales() {
+            // Backup simulation if RPC fails
             whaleList.innerHTML = '';
-            const tags = ["MEV_BOT", "RAY_POOL", "WHALE", "BINANCE", "JUPITER", "SNIPER"];
-            
-            function genAddr() {
-                const c = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
-                let s = ''; for(let i=0;i<4;i++) s+=c.charAt(Math.floor(Math.random()*c.length));
-                return s + '...' + s.split('').reverse().join('');
-            }
-
             let pct = 5.2;
             for(let i=0; i<30; i++) {
-                pct = pct * (0.90 + Math.random() * 0.05);
-                let tag = "";
-                if(i===0) tag = "DEV_WALLET";
-                else if(i===1) tag = "RAY_POOL";
-                else if(Math.random() > 0.8) tag = tags[Math.floor(Math.random()*tags.length)];
-                
-                let color = "#fff";
-                if(i===0) color="var(--neon-green)";
-                if(i===1) color="var(--neon-blue)";
-
+                pct = pct * 0.9;
                 const div = document.createElement('div');
                 div.className = 'whale-row';
                 div.innerHTML = `
                     <span style="color:#444;">#${i + 1}</span>
-                    <span style="color:${color}; font-family:monospace;">${genAddr()}</span>
+                    <span style="color:#fff; font-family:monospace;">SIM...${i}</span>
                     <span style="color:#aaa; text-align:right;">${pct.toFixed(2)}%</span>
-                    <span style="color:#666; font-size:0.7rem; text-align:right;">${tag ? '['+tag+']' : ''}</span>
+                    <span style="color:#666; font-size:0.7rem; text-align:right;">[SIM]</span>
                 `;
                 whaleList.appendChild(div);
             }
         }
 
         // Init
-        fetchRealWhales();
+        fetchChainData();
 
         /* --- 4. CLOCK --- */
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString(); }, 1000);
