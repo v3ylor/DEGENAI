@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PROTOCOL_V4 // NEURAL_UPLINK</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root { --neon-green: #00ff41; --bg-color: #020202; --font: 'Courier New', monospace; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: var(--bg-color); color: var(--neon-green); font-family: var(--font); overflow: hidden; }
+        
+        /* 3D BG */
+        #canvas-container { position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.6; }
+
+        /* LAYOUT */
+        .container { max-width: 1000px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; padding: 20px; }
+
+        /* NAV */
+        header { display: flex; justify-content: space-between; padding: 20px; border-bottom: 1px solid #333; background: rgba(0,0,0,0.8); }
+        .nav-links a { color: #555; text-decoration: none; margin-left: 20px; font-weight: bold; }
+        .nav-links a:hover { color: var(--neon-green); }
+
+        /* TERMINAL WINDOW */
+        .terminal-box {
+            flex-grow: 1;
+            border: 1px solid var(--neon-green);
+            background: rgba(0, 10, 0, 0.9);
+            margin-top: 20px;
+            display: flex; flex-direction: column;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.1);
+        }
+        .term-header { background: #111; padding: 10px; border-bottom: 1px solid #333; display: flex; gap: 10px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; }
+        .red { background: #ff5f56; } .yellow { background: #ffbd2e; } .green { background: #27c93f; }
+
+        #output { flex-grow: 1; padding: 20px; overflow-y: auto; font-size: 1rem; line-height: 1.6; }
+        .input-area { display: flex; padding: 15px; border-top: 1px solid #333; background: #000; }
+        input { background: transparent; border: none; color: #fff; width: 100%; font-family: inherit; font-size: 1.1rem; outline: none; margin-left: 10px; }
+
+        /* AI MESSAGE STYLE */
+        .ai-msg { color: var(--neon-green); margin-bottom: 10px; }
+        .user-msg { color: #fff; margin-bottom: 10px; opacity: 0.8; }
+        .error-msg { color: red; }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div class="container">
+        <header>
+            <div>NEURAL_NET // V4.0</div>
+            <div class="nav-links">
+                <a href="index.html">COMMAND</a>
+                <a href="#" style="color:var(--neon-green)">TERMINAL</a>
+                <a href="#">DATA</a>
+            </div>
+        </header>
+
+        <div class="terminal-box">
+            <div class="term-header">
+                <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
+                <span style="margin-left:10px; color:#666;">gemini-2.5-flash @ secure-uplink</span>
+            </div>
+            <div id="output">
+                <div class="ai-msg">> INITIALIZING NEURAL LINK...</div>
+                <div class="ai-msg">> CONNECTION ESTABLISHED.</div>
+                <br>
+                <div class="ai-msg">> I am ready. Feed me market data or scenarios.</div>
+            </div>
+            <div class="input-area">
+                <span>root@degen:~$</span>
+                <input type="text" id="prompt" placeholder="Enter command..." autofocus>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* --- 3D SCENE: NEURAL NODES --- */
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+        // Particles (Neural Nodes)
+        const geometry = new THREE.BufferGeometry();
+        const count = 1000;
+        const pos = new Float32Array(count * 3);
+        for(let i=0; i<count*3; i++) pos[i] = (Math.random()-0.5) * 50;
+        geometry.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        const material = new THREE.PointsMaterial({ color: 0x00ff41, size: 0.1 });
+        const nodes = new THREE.Points(geometry, material);
+        scene.add(nodes);
+
+        camera.position.z = 20;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            nodes.rotation.y += 0.001;
+            nodes.rotation.x += 0.0005;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        /* --- CHAT LOGIC --- */
+        const input = document.getElementById('prompt');
+        const output = document.getElementById('output');
+
+        input.addEventListener('keypress', async (e) => {
+            if(e.key === 'Enter') {
+                const text = input.value;
+                input.value = '';
+                
+                // Add User Message
+                output.innerHTML += `<div class="user-msg">root@degen:~$ ${text}</div>`;
+                output.scrollTop = output.scrollHeight;
+
+                try {
+                    const res = await fetch('/api/brain', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt: text })
+                    });
+                    const data = await res.json();
+                    
+                    setTimeout(() => {
+                        const color = data.action === 'BUY' ? '#0f0' : (data.action === 'SELL' ? '#f00' : '#fff');
+                        output.innerHTML += `<div class="ai-msg" style="color:${color}">> [${data.action}] ${data.message}</div>`;
+                        output.scrollTop = output.scrollHeight;
+                    }, 500);
+                } catch(err) {
+                    output.innerHTML += `<div class="error-msg">> ERROR: UPLINK FAILED</div>`;
+                }
+            }
+        });
+    </script>
+</body>
+</html>
