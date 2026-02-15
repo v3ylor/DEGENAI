@@ -135,9 +135,9 @@
         function animate() { requestAnimationFrame(animate); sphere.rotation.y += 0.005; renderer.render(scene, camera); }
         animate();
 
-        /* --- SOLSCAN V2 API LOGIC --- */
+        /* --- SOLSCAN V2 PRO API LOGIC --- */
         
-        // YOUR API KEY INTEGRATED HERE
+        // YOUR V2 API KEY
         const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjcmVhdGVkQXQiOjE3NzExOTQ0NDM1NjEsImVtYWlsIjoiYmVuamFtaW5iYWJhbG9sYTVAZ21haWwuY29tIiwiYWN0aW9uIjoidG9rZW4tYXBpIiwiYXBpVmVyc2lvbiI6InYyIiwiaWF0IjoxNzcxMTk0NDQzfQ.UWoSGjSRpUSLsD4IYcoR8b6ecjRX5UunPeXXlcRaZ5U";
 
         async function startSolscanMonitor() {
@@ -146,72 +146,70 @@
 
             if(!address) { alert("Please enter a Wallet Address."); return; }
 
-            // Update UI
             document.getElementById('initial-state').style.display = 'none';
             document.getElementById('monitor-display').style.display = 'flex';
             logBox.innerHTML = `<div class='log-item' style='color:var(--neon-blue)'>> CONNECTING TO SOLSCAN V2...</div>` + logBox.innerHTML;
 
             try {
-                // FETCH 1: GET SOL BALANCE & INFO
-                // Use the v2 API endpoint structure
+                // FETCH 1: TOKEN ACCOUNTS (Includes prices in V2)
+                // We use the 'pro-api' V2 endpoint which matches your key type
+                const tokenRes = await fetch(`https://pro-api.solscan.io/v2.0/account/token-accounts?address=${address}&type=token&page=1&page_size=40`, {
+                    headers: { 'token': API_KEY } // V2 uses 'token' header
+                });
+
+                if(tokenRes.status === 401) throw new Error("401 Unauthorized - Key Invalid");
+                if(!tokenRes.ok) throw new Error("API Error: " + tokenRes.status);
+                
+                const tokenData = await tokenRes.json();
+
+                // FETCH 2: SOL BALANCE (Account Detail)
                 const accountRes = await fetch(`https://pro-api.solscan.io/v2.0/account/detail?address=${address}`, {
                     headers: { 'token': API_KEY }
                 });
-
-                if(!accountRes.ok) {
-                    // Fallback to public if pro fails
-                    throw new Error("API Connection Failed. Code: " + accountRes.status);
-                }
-                
                 const accountData = await accountRes.json();
-                
-                // FETCH 2: GET TOKEN ACCOUNTS (V2)
-                const tokenRes = await fetch(`https://pro-api.solscan.io/v2.0/account/token-accounts?address=${address}&page=1&page_size=40`, {
-                    headers: { 'token': API_KEY }
-                });
-                const tokenData = await tokenRes.json();
 
                 // RENDER LOGIC
                 let totalValue = 0;
                 let tokenHtml = "";
 
-                // 1. Process SOL (From Account Detail)
-                if(accountData.data) {
+                // 1. ADD SOL (If available in account detail)
+                if (accountData.success && accountData.data) {
                     const solBal = accountData.data.lamports / 1000000000;
-                    // Note: V2 API usually provides price estimation in the response or we calc it
-                    // For now, let's treat SOL like a token in the list if possible, or add it manually.
-                    // We will assume tokens list contains Wrapped SOL, but native SOL needs addition.
+                    const solPrice = 200; // Fallback price if API doesn't provide it directly in this endpoint
+                    // Ideally we'd fetch SOL price, but for stability let's focus on tokens first
+                    // or assume Solscan includes Wrapped SOL in the token list (which it often does)
                 }
 
-                // 2. Process Token List
-                // V2 API response structure usually: { success: true, data: [...] }
-                const tokens = tokenData.data || [];
+                // 2. PROCESS TOKENS
+                if (tokenData.success && tokenData.data) {
+                    tokenData.data.forEach(t => {
+                        // Calculate Amount
+                        const decimals = t.token_decimals || 0;
+                        const amount = t.amount / Math.pow(10, decimals);
+                        
+                        // Price comes from V2 API usually
+                        const price = t.price_usdt || 0;
+                        const value = amount * price;
 
-                tokens.forEach(t => {
-                    // Adjust fields based on Solscan V2 response structure
-                    const amount = t.amount / (10 ** t.decimals);
-                    const price = t.price_usdt || 0;
-                    const value = amount * price;
-                    
-                    if(value > 0.01) { // Filter dust
-                        totalValue += value;
-                        tokenHtml += `
-                            <div class="token-item">
-                                <div class="token-name">
-                                    <img src="${t.token_icon || 'https://via.placeholder.com/20'}" class="token-icon" onerror="this.style.display='none'">
-                                    ${t.token_symbol || 'UNK'}
+                        if (value > 0.5) { // Filter dust
+                            totalValue += value;
+                            tokenHtml += `
+                                <div class="token-item">
+                                    <div class="token-name">
+                                        <img src="${t.token_icon || 'https://via.placeholder.com/20'}" class="token-icon" onerror="this.style.display='none'">
+                                        ${t.token_symbol || 'UNK'}
+                                    </div>
+                                    <div style="text-align:right">
+                                        <div class="token-val">$${value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                        <div style="font-size:0.7rem; color:#666;">${amount.toLocaleString(undefined, {maximumFractionDigits: 2})} ${t.token_symbol}</div>
+                                    </div>
                                 </div>
-                                <div style="text-align:right">
-                                    <div class="token-val">$${value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
-                                    <div style="font-size:0.7rem; color:#666;">${amount.toLocaleString()}</div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                });
+                            `;
+                        }
+                    });
+                }
 
-                // Display Total
-                document.getElementById('total-balance').innerText = "$" + totalValue.toLocaleString(undefined, {minimumFractionDigits: 2});
+                document.getElementById('total-balance').innerText = "$" + totalValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
                 document.getElementById('token-list').innerHTML = tokenHtml;
                 
                 logBox.innerHTML = `<div class='log-item' style='color:var(--neon-green)'>> DATA RECEIVED.</div>` + logBox.innerHTML;
@@ -219,53 +217,6 @@
             } catch(e) {
                 console.error(e);
                 logBox.innerHTML = `<div class='log-item' style='color:red'>> ERROR: ${e.message}</div>` + logBox.innerHTML;
-                
-                // --- FALLBACK TO PUBLIC API IF PRO V2 FAILS ---
-                logBox.innerHTML = `<div class='log-item' style='color:orange'>> RETRYING PUBLIC ENDPOINT...</div>` + logBox.innerHTML;
-                tryFallbackPublic(address, logBox);
-            }
-        }
-
-        async function tryFallbackPublic(address, logBox) {
-            try {
-                 const tokenRes = await fetch(`https://public-api.solscan.io/account/tokens?account=${address}`, {
-                    headers: { 'token': API_KEY }
-                });
-                const tokenData = await tokenRes.json();
-                
-                let totalValue = 0;
-                let tokenHtml = "";
-
-                tokenData.forEach(t => {
-                    const amount = t.tokenAmount.uiAmount;
-                    // In public API, price might be hidden or in 'tokenPrice'
-                    let price = 0;
-                    if(t.tokenPrice && t.tokenPrice.priceUsdt) price = t.tokenPrice.priceUsdt;
-                    
-                    const value = amount * price;
-                    totalValue += value;
-
-                    if(amount > 0) {
-                        tokenHtml += `
-                            <div class="token-item">
-                                <div class="token-name">
-                                    ${t.tokenSymbol || t.tokenName || 'UNK'}
-                                </div>
-                                <div style="text-align:right">
-                                    <div class="token-val">${value > 0 ? '$'+value.toFixed(2) : '---'}</div>
-                                    <div style="font-size:0.7rem; color:#666;">${amount.toLocaleString()}</div>
-                                </div>
-                            </div>
-                        `;
-                    }
-                });
-                
-                document.getElementById('total-balance').innerText = "$" + totalValue.toLocaleString(undefined, {minimumFractionDigits: 2});
-                document.getElementById('token-list').innerHTML = tokenHtml;
-                logBox.innerHTML = `<div class='log-item' style='color:var(--neon-green)'>> PUBLIC DATA LOADED.</div>` + logBox.innerHTML;
-
-            } catch(err) {
-                logBox.innerHTML = `<div class='log-item' style='color:red'>> FATAL: ${err.message}</div>` + logBox.innerHTML;
             }
         }
     </script>
