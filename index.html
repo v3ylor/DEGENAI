@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>DEGEN_AI // COMMAND_CENTER</title>
+    <title>$DEGENAGENT // COMMAND_CENTER</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root {
@@ -32,6 +32,11 @@
 
         /* NAVIGATION */
         header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--neon-green); background: #000; padding: 0 20px; z-index: 100; }
+        
+        /* LOGO STYLE */
+        .logo { height: 40px; width: auto; filter: drop-shadow(0 0 5px var(--neon-green)); transition: 0.3s; }
+        .logo:hover { filter: drop-shadow(0 0 15px var(--neon-green)); transform: scale(1.05); }
+
         .nav-links a { color: #555; text-decoration: none; margin-left: 30px; font-weight: bold; font-size: 1.2rem; transition: 0.3s; text-transform: uppercase; }
         .nav-links a:hover, .nav-links a.active { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
 
@@ -101,7 +106,10 @@
 
     <div class="grid-layout">
         <header>
-            <div style="font-size:1.5rem; font-weight:900; letter-spacing:2px;">DEGEN_AI</div>
+            <div class="brand">
+                <img src="logo.png" alt="$DEGENAGENT" class="logo">
+            </div>
+
             <div class="nav-links">
                 <a href="index.html" class="active">COMMAND</a>
                 <a href="terminal.html">TERMINAL</a>
@@ -145,9 +153,9 @@
         </div>
 
         <footer>
-            <div>DEGEN_BASE</div>
+            <div>SERVER: TOKYO_04</div>
             <div>TPS: <span style="color:var(--neon-green)" id="tps-meter">4,290</span></div>
-            <div>VERSION: 4.0.2</div>
+            <div>VERSION: 4.0.3</div>
         </footer>
     </div>
 
@@ -180,17 +188,12 @@
 
         function animate() {
             requestAnimationFrame(animate);
-            
-            // Auto-rotate
             torus.rotation.x += 0.002;
             torus.rotation.y += 0.005;
             grid.rotation.y += 0.001;
-
-            // Interactive Camera (Follows Mouse)
             camera.position.x += (mouseX - camera.position.x) * 0.05;
             camera.position.y += (-mouseY - camera.position.y) * 0.05;
             camera.lookAt(scene.position);
-
             renderer.render(scene, camera);
         }
         animate();
@@ -199,17 +202,14 @@
         const ticker = document.getElementById('ticker-feed');
         const CA = "Dt7rNPRfpmf4P8QvWQgyh5S7pnp4nQWYUmUwrarwpump"; 
         
-        // 1. LOAD SAVED TRADES
         let tradeHistory = JSON.parse(localStorage.getItem('degen_trades') || '[]');
         let knownSig = new Set();
 
-        // 2. RENDER HISTORY
         tradeHistory.reverse().forEach(t => {
             knownSig.add(t.tx);
             addTickerItemToDOM(t.kind, t.vol);
         });
 
-        // Add item to DOM
         function addTickerItemToDOM(kind, vol) {
             const div = document.createElement('div');
             div.className = 'ticker-item';
@@ -218,7 +218,6 @@
                 <span>$${vol}</span>
             `;
             ticker.prepend(div);
-            // Limit to 100 items to prevent lag
             if(ticker.children.length > 100) ticker.lastChild.remove();
         }
 
@@ -237,26 +236,19 @@
             try {
                 const res = await fetch(`https://api.geckoterminal.com/api/v2/networks/solana/pools/${pool}/trades`);
                 const json = await res.json();
-                
-                // Process trades
                 json.data.reverse().forEach(t => {
                     const attr = t.attributes;
                     if(!knownSig.has(attr.tx_hash)) {
                         knownSig.add(attr.tx_hash);
                         if(knownSig.size > 200) knownSig.clear();
-
                         const tradeData = {
                             tx: attr.tx_hash,
                             kind: attr.kind,
                             vol: parseFloat(attr.volume_in_usd).toFixed(2)
                         };
-
-                        // Save to Cache
                         tradeHistory.push(tradeData);
                         if(tradeHistory.length > 100) tradeHistory.shift();
                         localStorage.setItem('degen_trades', JSON.stringify(tradeHistory));
-
-                        // Render
                         addTickerItemToDOM(tradeData.kind, tradeData.vol);
                     }
                 });
@@ -264,15 +256,12 @@
         }
         startFeed();
 
-        // Clock & TPS SIMULATOR
         setInterval(() => {
             document.getElementById('clock').innerText = new Date().toLocaleTimeString();
-            // Fluctuate TPS between 3500 and 4800 to look like real Solana traffic
             const tps = Math.floor(Math.random() * (4800 - 3500 + 1)) + 3500;
             document.getElementById('tps-meter').innerText = tps.toLocaleString();
         }, 1000);
         
-        // Resize
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth/window.innerHeight;
             camera.updateProjectionMatrix();
