@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DEGEN_AI // RUG_DETECTOR</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        :root {
+            --neon-green: #00ff41;
+            --neon-red: #ff003c;
+            --neon-yellow: #fcee0a;
+            --bg-color: #050505;
+            --panel-bg: rgba(0, 10, 0, 0.95);
+            --border: 1px solid rgba(0, 255, 65, 0.3);
+            --font: 'Courier New', monospace;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: var(--bg-color); color: var(--neon-green); font-family: var(--font); overflow: hidden; height: 100vh; }
+        
+        #canvas-container { position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.4; }
+        .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%); background-size: 100% 4px; pointer-events: none; z-index: 99; opacity: 0.3; }
+
+        .container {
+            display: grid;
+            grid-template-columns: 350px 1fr 350px;
+            grid-template-rows: 70px 1fr;
+            height: 100vh;
+            padding: 15px;
+            gap: 15px;
+        }
+
+        header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--neon-green); background: #000; padding: 0 20px; z-index: 10; }
+        .brand-container { display: flex; align-items: center; gap: 15px; }
+        .logo { height: 30px; width: auto; filter: drop-shadow(0 0 5px var(--neon-green)); }
+        .brand-text { font-size: 1.2rem; font-weight: 900; letter-spacing: 2px; color: #fff; text-shadow: 0 0 10px var(--neon-green); }
+        .nav-links a { color: #555; text-decoration: none; margin-left: 20px; font-weight: bold; font-size: 1.1rem; }
+        .nav-links a:hover, .nav-links a.active { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
+
+        .panel { background: var(--panel-bg); border: var(--border); position: relative; display: flex; flex-direction: column; overflow: hidden; }
+        .panel-header { background: rgba(0,255,65,0.1); padding: 8px; font-size: 0.75rem; border-bottom: var(--border); display: flex; justify-content: space-between; font-weight: bold; letter-spacing: 1px; }
+
+        /* INPUT AREA */
+        .search-box { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        input { background: #000; border: 1px solid var(--neon-green); color: #fff; padding: 15px; font-family: inherit; font-size: 0.9rem; outline: none; text-align: center; }
+        .btn { background: var(--neon-green); color: #000; padding: 15px; border: none; font-weight: bold; cursor: pointer; font-size: 1.1rem; transition: 0.3s; }
+        .btn:hover { background: #fff; box-shadow: 0 0 20px #fff; }
+
+        /* AUDIT DISPLAY */
+        #audit-result { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 20px; }
+        .score-circle { 
+            width: 150px; height: 150px; 
+            border: 5px solid var(--neon-green); 
+            border-radius: 50%; 
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            margin: 20px 0;
+            box-shadow: 0 0 30px rgba(0,255,65,0.2);
+        }
+        .score-val { font-size: 3rem; font-weight: 900; color: #fff; }
+        .score-label { font-size: 0.8rem; color: var(--neon-green); }
+        
+        .verdict { font-size: 2rem; font-weight: 900; margin-top: 10px; letter-spacing: 2px; }
+        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; margin-top: 30px; }
+        .detail-box { border: 1px solid #333; padding: 10px; text-align: left; }
+        .detail-label { font-size: 0.7rem; color: #888; }
+        .detail-val { font-size: 1.1rem; color: #fff; font-weight: bold; }
+
+        .corner { position: absolute; width: 10px; height: 10px; border-style: solid; border-color: var(--neon-green); pointer-events: none; }
+        .tl { top: 0; left: 0; border-width: 2px 0 0 2px; }
+        .br { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container"></div>
+    <div class="scanlines"></div>
+
+    <div class="container">
+        <header>
+            <div class="brand-container">
+                <img src="logo.png" alt="Logo" class="logo">
+                <span class="brand-text">DEGEN_AI</span>
+            </div>
+            <div class="nav-links">
+                <a href="index.html">COMMAND</a>
+                <a href="terminal.html">TERMINAL</a>
+                <a href="data.html">DATA</a>
+                <a href="audit.html" style="color:var(--neon-green)">AUDIT</a>
+            </div>
+        </header>
+
+        <div class="panel">
+            <div class="corner tl"></div><div class="corner br"></div>
+            <div class="panel-header"><span>TARGET_TOKEN</span><span>CONTRACT_ADDRESS</span></div>
+            <div class="search-box">
+                <div style="font-size:0.8rem; color:#aaa;">PASTE TOKEN ADDRESS (CA):</div>
+                <input type="text" id="ca-input" placeholder="e.g. Dt7r...pump">
+                <button class="btn" onclick="runAudit()">INITIATE SCAN</button>
+            </div>
+            <div style="padding:20px; font-size:0.8rem; color:#666; line-height:1.6;">
+                > LIQUIDITY ANALYSIS<br>
+                > FDV VS. MCAP CHECK<br>
+                > RUG PROBABILITY CALC
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header"><span>AUDIT_RESULTS</span><span>AI_VERIFIED</span></div>
+            
+            <div id="loading" style="display:none; justify-content:center; align-items:center; height:100%; color:var(--neon-green);">
+                > ANALYZING ON-CHAIN METRICS...
+            </div>
+
+            <div id="audit-result">
+                <div class="score-circle" id="score-circle">
+                    <span class="score-val" id="score-text">0</span>
+                    <span class="score-label">SAFETY SCORE</span>
+                </div>
+                
+                <div class="verdict" id="verdict-text">WAITING...</div>
+                
+                <div class="details-grid">
+                    <div class="detail-box">
+                        <div class="detail-label">LIQUIDITY (USD)</div>
+                        <div class="detail-val" id="liq-val">---</div>
+                    </div>
+                    <div class="detail-box">
+                        <div class="detail-label">MARKET CAP</div>
+                        <div class="detail-val" id="mcap-val">---</div>
+                    </div>
+                    <div class="detail-box">
+                        <div class="detail-label">PRICE CHANGE (1H)</div>
+                        <div class="detail-val" id="price-change">---</div>
+                    </div>
+                    <div class="detail-box">
+                        <div class="detail-label">VOLATILITY INDEX</div>
+                        <div class="detail-val" id="vol-val">---</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="idle-msg" style="display:flex; justify-content:center; align-items:center; height:100%; color:#444;">
+                ENTER CONTRACT TO SCAN
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="corner tl"></div><div class="corner br"></div>
+            <div class="panel-header"><span>SYSTEM_LOG</span><span>LIVE</span></div>
+            <div id="audit-log" style="padding:15px; font-size:0.8rem; color:#888;">
+                > SYSTEM READY.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* --- 3D VISUAL --- */
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById('canvas-container').appendChild(renderer.domElement);
+        
+        // Shield Geometry
+        const geometry = new THREE.IcosahedronGeometry(2.5, 1);
+        const material = new THREE.MeshBasicMaterial({ color: 0x00ff41, wireframe: true, transparent:true, opacity:0.1 });
+        const shield = new THREE.Mesh(geometry, material);
+        scene.add(shield);
+        camera.position.z = 8;
+
+        function animate() {
+            requestAnimationFrame(animate);
+            shield.rotation.y += 0.002;
+            shield.rotation.z -= 0.001;
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        /* --- AUDIT LOGIC --- */
+        async function runAudit() {
+            const ca = document.getElementById('ca-input').value.trim();
+            if(!ca) return;
+
+            // UI Reset
+            document.getElementById('idle-msg').style.display = 'none';
+            document.getElementById('audit-result').style.display = 'none';
+            document.getElementById('loading').style.display = 'flex';
+            addLog(`> INITIATING SCAN FOR: ${ca.slice(0,6)}...`);
+
+            try {
+                // 1. Fetch from DexScreener (Reliable & Free)
+                const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
+                const data = await res.json();
+
+                if(!data.pairs || data.pairs.length === 0) {
+                    throw new Error("TOKEN NOT FOUND OR NO LIQUIDITY");
+                }
+
+                const pair = data.pairs[0];
+                const liq = pair.liquidity.usd;
+                const mcap = pair.fdv;
+                const change1h = pair.priceChange.h1;
+                
+                // 2. AI Scoring Logic
+                let score = 50; // Start neutral
+                let verdict = "NEUTRAL";
+                let color = "var(--neon-yellow)";
+
+                // Liquidity Check
+                if(liq > 100000) score += 20;
+                else if(liq < 5000) score -= 30;
+
+                // Market Cap Check
+                if(mcap > 500000) score += 10;
+
+                // Volatility Check (Pump/Dump)
+                if(Math.abs(change1h) > 30) score -= 15; // Too volatile
+                else score += 10; // Stable
+
+                // Final Bounds
+                score = Math.max(0, Math.min(100, score));
+
+                // Determine Verdict
+                if(score > 80) { verdict = "SAFE TO APE"; color = "var(--neon-green)"; }
+                else if(score > 40) { verdict = "HIGH RISK"; color = "var(--neon-yellow)"; }
+                else { verdict = "LIKELY RUG"; color = "var(--neon-red)"; }
+
+                // 3. Render Results
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('audit-result').style.display = 'flex';
+                
+                document.getElementById('score-text').innerText = score;
+                document.getElementById('score-text').style.color = color;
+                document.getElementById('score-circle').style.borderColor = color;
+                document.getElementById('score-circle').style.boxShadow = `0 0 30px ${color}`;
+                
+                document.getElementById('verdict-text').innerText = verdict;
+                document.getElementById('verdict-text').style.color = color;
+
+                document.getElementById('liq-val').innerText = "$" + liq.toLocaleString();
+                document.getElementById('mcap-val').innerText = "$" + mcap.toLocaleString();
+                document.getElementById('price-change').innerText = change1h + "%";
+                document.getElementById('vol-val').innerText = (mcap / liq).toFixed(2); // MCap/Liq Ratio
+
+                // Update 3D Shield Color
+                shield.material.color.setHex(score > 50 ? 0x00ff41 : 0xff003c);
+
+                addLog(`> SCAN COMPLETE. SCORE: ${score}/100`);
+                addLog(`> VERDICT: ${verdict}`);
+
+            } catch(err) {
+                document.getElementById('loading').style.display = 'none';
+                addLog(`> ERROR: ${err.message}`, 'red');
+            }
+        }
+
+        function addLog(msg, color='#888') {
+            const logBox = document.getElementById('audit-log');
+            logBox.innerHTML += `<div style="margin-bottom:5px; color:${color}">${msg}</div>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+    </script>
+</body>
+</html>
