@@ -44,12 +44,25 @@
         #main-chart { grid-column: 2 / 3; grid-row: 2 / 3; position: relative; }
         canvas#chart-canvas { width: 100%; height: 100%; display: block; }
 
-        /* METRICS GRID */
-        .metrics-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
-        .metric-box { border: 1px solid #333; padding: 10px; background: rgba(0,0,0,0.5); }
-        .metric-label { font-size: 0.7rem; color: #888; }
-        .metric-val { font-size: 1.2rem; font-weight: bold; color: #fff; margin-top: 5px; }
-        .pulse { animation: pulse 2s infinite; }
+        /* METRICS LIST (VERTICAL) */
+        .metrics-grid { 
+            display: flex; 
+            flex-direction: column; /* Stack Vertically */
+            gap: 20px; 
+            padding: 20px; 
+            height: 100%;
+        }
+        .metric-box { 
+            border: 1px solid #333; 
+            padding: 20px; 
+            background: rgba(0,0,0,0.5); 
+            flex-grow: 1; /* Stretch to fill space */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        .metric-label { font-size: 0.8rem; color: #888; margin-bottom: 5px; }
+        .metric-val { font-size: 1.5rem; font-weight: bold; color: #fff; }
 
         /* WHALE WATCH */
         .whale-list { padding: 10px; overflow-y: auto; font-size: 0.8rem; }
@@ -100,20 +113,19 @@
                     <div class="metric-label">TOTAL SUPPLY</div>
                     <div class="metric-val">1,000,000,000</div>
                 </div>
+                
                 <div class="metric-box">
                     <div class="metric-label">CIRCULATING</div>
                     <div class="metric-val" id="circ-supply">892,104,200</div>
                 </div>
+                
                 <div class="metric-box">
                     <div class="metric-label">MARKET CAP</div>
                     <div class="metric-val" style="color:var(--neon-blue)">$4.2M</div>
                 </div>
-                <div class="metric-box">
-                    <div class="metric-label">LIQUIDITY</div>
-                    <div class="metric-val" style="color:var(--neon-red)">BURNED</div>
-                </div>
             </div>
-            <div style="padding: 15px; margin-top: auto;">
+
+            <div style="padding: 15px; margin-top: auto; border-top: 1px solid #333;">
                 <div class="metric-label">BURN_RATE (24H)</div>
                 <div style="height: 5px; background: #333; margin-top: 5px; position: relative;">
                     <div style="width: 45%; height: 100%; background: var(--neon-red); box-shadow: 0 0 10px red;"></div>
