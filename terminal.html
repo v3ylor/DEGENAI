@@ -40,10 +40,11 @@
         /* AI MESSAGE STYLE */
         .ai-msg { color: var(--neon-green); margin-bottom: 10px; text-shadow: 0 0 5px rgba(0, 255, 65, 0.5); }
         
-        /* USER MESSAGE STYLE (STRICT WHITE) */
+        /* USER MESSAGE STYLE */
         .user-msg { color: #ffffff; margin-bottom: 10px; font-weight: bold; }
         
         .error-msg { color: #ff003c; }
+        .sys-msg { color: #555; font-style: italic; margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -69,23 +70,22 @@
                 <div class="ai-msg">> CONNECTION ESTABLISHED.</div>
                 <br>
                 <div class="ai-msg">> I am ready. Feed me market data or scenarios.</div>
-            </div>
+                </div>
             <div class="input-area">
                 <span style="color:#fff">root@degen:~$</span>
-                <input type="text" id="prompt" placeholder="Enter command..." autofocus>
+                <input type="text" id="prompt" placeholder="Enter command... (Type 'clear' to reset)" autofocus>
             </div>
         </div>
     </div>
 
     <script>
-        /* --- 3D SCENE: NEURAL NODES --- */
+        /* --- 3D SCENE --- */
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        // Particles (Neural Nodes)
         const geometry = new THREE.BufferGeometry();
         const count = 1000;
         const pos = new Float32Array(count * 3);
@@ -105,18 +105,54 @@
         }
         animate();
 
-        /* --- CHAT LOGIC --- */
+        /* --- CHAT ENGINE WITH CACHE --- */
         const input = document.getElementById('prompt');
         const output = document.getElementById('output');
+        
+        // 1. Load History on Boot
+        let chatHistory = JSON.parse(localStorage.getItem('term_history') || '[]');
+        
+        // Render saved messages
+        chatHistory.forEach(msg => {
+            const div = document.createElement('div');
+            div.className = msg.type;
+            if(msg.color) div.style.color = msg.color;
+            div.innerHTML = msg.content;
+            output.appendChild(div);
+        });
+        output.scrollTop = output.scrollHeight;
+
+        // 2. Helper to Save & Render
+        function appendMessage(type, content, color = null) {
+            // Render
+            const div = document.createElement('div');
+            div.className = type;
+            if(color) div.style.color = color;
+            div.innerHTML = content;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+
+            // Save
+            chatHistory.push({ type, content, color });
+            // Limit history to 50 items
+            if(chatHistory.length > 50) chatHistory.shift();
+            localStorage.setItem('term_history', JSON.stringify(chatHistory));
+        }
 
         input.addEventListener('keypress', async (e) => {
             if(e.key === 'Enter') {
                 const text = input.value;
                 input.value = '';
+
+                // Handle 'clear' command
+                if(text.toLowerCase() === 'clear') {
+                    localStorage.removeItem('term_history');
+                    location.reload();
+                    return;
+                }
                 
-                // 1. Add User Message (WHITE)
-                output.innerHTML += `<div class="user-msg">root@degen:~$ ${text}</div>`;
-                output.scrollTop = output.scrollHeight;
+                // Add User Message (White)
+                appendMessage('user-msg', `root@degen:~$ ${text}`);
 
                 try {
                     const res = await fetch('/api/brain', {
@@ -127,16 +163,14 @@
                     const data = await res.json();
                     
                     setTimeout(() => {
-                        // 2. Determine Color (Default is NEON GREEN)
-                        // Only turn Red if it's a SELL decision or Error
+                        // AI Logic: Green unless SELL/RUG
                         let color = 'var(--neon-green)';
                         if(data.action === 'SELL' || data.action === 'RUG') color = '#ff003c';
 
-                        output.innerHTML += `<div class="ai-msg" style="color:${color}">> [${data.action}] ${data.message}</div>`;
-                        output.scrollTop = output.scrollHeight;
+                        appendMessage('ai-msg', `> [${data.action}] ${data.message}`, color);
                     }, 500);
                 } catch(err) {
-                    output.innerHTML += `<div class="error-msg">> ERROR: UPLINK FAILED</div>`;
+                    appendMessage('error-msg', `> ERROR: UPLINK FAILED`);
                 }
             }
         });
