@@ -117,20 +117,18 @@
     </div>
 
     <script>
-        /* --- 3D SCENE: THE WAR ROOM TORUS --- */
+        /* --- 3D SCENE (UNCHANGED) --- */
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        // Complex Torus (The Brain)
         const geometry = new THREE.TorusKnotGeometry(10, 3, 150, 20);
         const material = new THREE.PointsMaterial({ color: 0x00ff41, size: 0.12, transparent: true, opacity: 0.8 });
         const torus = new THREE.Points(geometry, material);
         scene.add(torus);
 
-        // Grid Floor
         const grid = new THREE.GridHelper(200, 50, 0x004400, 0x001100);
         grid.position.y = -20;
         scene.add(grid);
@@ -146,9 +144,32 @@
         }
         animate();
 
-        /* --- TICKER FEED --- */
+        /* --- CACHED TICKER FEED SYSTEM --- */
         const ticker = document.getElementById('ticker-feed');
         const CA = "Dt7rNPRfpmf4P8QvWQgyh5S7pnp4nQWYUmUwrarwpump"; 
+        
+        // 1. LOAD SAVED TRADES FROM LOCAL STORAGE
+        let tradeHistory = JSON.parse(localStorage.getItem('degen_trades') || '[]');
+        let knownSig = new Set();
+
+        // 2. RENDER HISTORY IMMEDIATELY (Prevents empty box on reload)
+        tradeHistory.reverse().forEach(t => { // Reverse to show oldest to newest logic if needed, or just loop
+            knownSig.add(t.tx);
+            addTickerItemToDOM(t.kind, t.vol, t.tx);
+        });
+
+        // Helper to add visual item
+        function addTickerItemToDOM(kind, vol, tx) {
+            const div = document.createElement('div');
+            div.className = 'ticker-item';
+            div.innerHTML = `
+                <span style="color:${kind==='buy'?'#0f0':'#f00'}">${kind.toUpperCase()}</span>
+                <span>$${vol}</span>
+            `;
+            ticker.prepend(div);
+            // Keep DOM clean (max 50 items visible)
+            if(ticker.children.length > 50) ticker.lastChild.remove();
+        }
 
         async function startFeed() {
             try {
@@ -156,7 +177,8 @@
                 const data = await res.json();
                 if(data.pairs) {
                     const pool = data.pairs[0].pairAddress;
-                    setInterval(() => fetchTrades(pool), 3000); // Fast updates
+                    // Poll frequently
+                    setInterval(() => fetchTrades(pool), 3000);
                 }
             } catch(e) {}
         }
@@ -165,16 +187,31 @@
             try {
                 const res = await fetch(`https://api.geckoterminal.com/api/v2/networks/solana/pools/${pool}/trades`);
                 const json = await res.json();
-                const t = json.data[0].attributes; // Get latest trade
                 
-                const div = document.createElement('div');
-                div.className = 'ticker-item';
-                div.innerHTML = `
-                    <span style="color:${t.kind==='buy'?'#0f0':'#f00'}">${t.kind.toUpperCase()}</span>
-                    <span>$${parseFloat(t.volume_in_usd).toFixed(2)}</span>
-                `;
-                ticker.prepend(div);
-                if(ticker.children.length > 20) ticker.lastChild.remove();
+                // Gecko returns newest first. We reverse to process chronologically if multiple arrive.
+                json.data.reverse().forEach(t => {
+                    const attr = t.attributes;
+                    if(!knownSig.has(attr.tx_hash)) {
+                        knownSig.add(attr.tx_hash);
+                        
+                        // Limit Set size
+                        if(knownSig.size > 200) knownSig.clear();
+
+                        const tradeData = {
+                            tx: attr.tx_hash,
+                            kind: attr.kind, // 'buy' or 'sell'
+                            vol: parseFloat(attr.volume_in_usd).toFixed(2)
+                        };
+
+                        // 3. SAVE TO HISTORY & LOCAL STORAGE
+                        tradeHistory.push(tradeData);
+                        if(tradeHistory.length > 50) tradeHistory.shift(); // Keep only last 50
+                        localStorage.setItem('degen_trades', JSON.stringify(tradeHistory));
+
+                        // 4. RENDER
+                        addTickerItemToDOM(tradeData.kind, tradeData.vol, tradeData.tx);
+                    }
+                });
             } catch(e) {}
         }
         startFeed();
@@ -182,7 +219,7 @@
         // Clock
         setInterval(() => document.getElementById('clock').innerText = new Date().toLocaleTimeString(), 1000);
         
-        // Resize
+        // Resize Handler
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth/window.innerHeight;
             camera.updateProjectionMatrix();
