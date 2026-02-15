@@ -35,6 +35,12 @@
 
         /* HEADER */
         header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--neon-green); background: #000; padding: 0 20px; z-index: 10; }
+        
+        /* BRANDING */
+        .brand-container { display: flex; align-items: center; gap: 15px; }
+        .logo { height: 30px; width: auto; filter: drop-shadow(0 0 5px var(--neon-green)); }
+        .brand-text { font-size: 1.2rem; font-weight: 900; letter-spacing: 2px; color: #fff; text-shadow: 0 0 10px var(--neon-green); }
+
         .nav-links a { color: #555; text-decoration: none; margin-left: 20px; font-weight: bold; font-size: 1.1rem; }
         .nav-links a:hover { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
 
@@ -42,9 +48,11 @@
         .panel { background: var(--panel-bg); border: var(--border); position: relative; display: flex; flex-direction: column; overflow: hidden; }
         .panel-header { background: rgba(0,255,65,0.1); padding: 8px; font-size: 0.75rem; border-bottom: var(--border); display: flex; justify-content: space-between; font-weight: bold; letter-spacing: 1px; }
         
-        /* CHART CONTAINER */
-        #main-chart { grid-column: 2 / 3; grid-row: 2 / 3; position: relative; }
-        canvas#chart-canvas { width: 100%; height: 100%; display: block; }
+        /* CHART CONTAINER (The Upgrade) */
+        #main-chart { grid-column: 2 / 3; grid-row: 2 / 3; position: relative; background: #000; }
+        
+        /* IFRAME STYLE */
+        iframe { width: 100%; height: 100%; border: none; filter: contrast(1.2) brightness(0.9); }
 
         /* METRICS LIST */
         .metrics-grid { display: flex; flex-direction: column; gap: 20px; padding: 20px; height: 100%; }
@@ -90,7 +98,10 @@
 
     <div class="container">
         <header>
-            <div>DEGEN_AI // ANALYTICS</div>
+            <div class="brand-container">
+                <img src="logo.png" alt="Logo" class="logo">
+                <span class="brand-text">DEGEN_AI</span>
+            </div>
             <div class="nav-links">
                 <a href="index.html">COMMAND</a>
                 <a href="terminal.html">TERMINAL</a>
@@ -126,11 +137,10 @@
         </div>
 
         <div class="panel" id="main-chart">
-            <div class="panel-header"><span>LIVE_SENTIMENT_INDEX</span><span>REALTIME</span></div>
-            <canvas id="chart-canvas"></canvas>
-            <div style="position:absolute; top: 40px; left: 20px; font-size: 3rem; font-weight: bold; opacity: 0.8;">
-                $0.0042 <span style="font-size: 1rem; color: var(--neon-green);">+12.4%</span>
-            </div>
+            <div class="panel-header"><span>MARKET_ACTION</span><span>DEXSCREENER_API</span></div>
+            <iframe 
+                src="https://dexscreener.com/solana/Dt7rNPRfpmf4P8QvWQgyh5S7pnp4nQWYUmUwrarwpump?embed=1&theme=dark&trades=0&info=0">
+            </iframe>
         </div>
 
         <div class="panel distribution">
@@ -173,34 +183,7 @@
         function animate3D() { requestAnimationFrame(animate3D); sphere.rotation.y += 0.002; sphere.rotation.x -= 0.001; renderer.render(scene, camera); }
         animate3D();
 
-        /* --- 2. CHART --- */
-        const cvs = document.getElementById('chart-canvas');
-        const ctx = cvs.getContext('2d');
-        function resizeChart() { cvs.width = cvs.parentElement.offsetWidth; cvs.height = cvs.parentElement.offsetHeight; }
-        window.addEventListener('resize', () => { resizeChart(); renderer.setSize(window.innerWidth, window.innerHeight); camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); });
-        resizeChart();
-        let dataPoints = Array(100).fill(0).map((_, i) => 50 + Math.random() * 10);
-        function drawChart() {
-            ctx.clearRect(0, 0, cvs.width, cvs.height);
-            ctx.strokeStyle = "rgba(0, 255, 65, 0.1)"; ctx.lineWidth = 1;
-            for(let i=0; i<cvs.width; i+=50) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,cvs.height); ctx.stroke(); }
-            for(let i=0; i<cvs.height; i+=50) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(cvs.width,i); ctx.stroke(); }
-            let last = dataPoints[dataPoints.length - 1];
-            let change = (Math.random() - 0.45) * 5;
-            dataPoints.push(Math.max(10, Math.min(90, last + change))); dataPoints.shift();
-            ctx.beginPath(); ctx.strokeStyle = "#00ff41"; ctx.lineWidth = 2; ctx.shadowBlur = 10; ctx.shadowColor = "#00ff41";
-            let step = cvs.width / (dataPoints.length - 1);
-            for(let i=0; i<dataPoints.length; i++) {
-                let y = cvs.height - (dataPoints[i] / 100 * cvs.height);
-                if(i===0) ctx.moveTo(0, y); else ctx.lineTo(i * step, y);
-            }
-            ctx.stroke();
-            ctx.lineTo(cvs.width, cvs.height); ctx.lineTo(0, cvs.height); ctx.fillStyle = "rgba(0, 255, 65, 0.1)"; ctx.fill();
-            requestAnimationFrame(drawChart);
-        }
-        drawChart();
-
-        /* --- 3. DATA & BURN CALCULATOR --- */
+        /* --- 2. DATA & BURN CALCULATOR (UNCHANGED) --- */
         const MINT_ADDRESS = 'Dt7rNPRfpmf4P8QvWQgyh5S7pnp4nQWYUmUwrarwpump';
         const INCINERATOR_ADDRESS = '1nc1nerator11111111111111111111111111111111';
         const INITIAL_SUPPLY = 1000000000; // 1 Billion
@@ -211,49 +194,38 @@
             try {
                 statusLabel.innerText = "RPC_SYNC...";
                 
-                // 1. Connection
                 const connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com", 'confirmed');
                 const mint = new solanaWeb3.PublicKey(MINT_ADDRESS);
                 
-                // 2. Fetch Current Supply (Checks for Formal Burns)
                 const supplyInfo = await connection.getTokenSupply(mint);
                 const currentSupply = supplyInfo.value.uiAmount;
                 const formalBurn = INITIAL_SUPPLY - currentSupply;
 
-                // 3. Fetch Incinerator Balance (Checks for Informal Burns)
                 let informalBurn = 0;
                 try {
                     const incineratorPubkey = new solanaWeb3.PublicKey(INCINERATOR_ADDRESS);
                     const incineratorAccounts = await connection.getTokenAccountsByOwner(incineratorPubkey, { mint: mint });
-                    
                     if (incineratorAccounts.value.length > 0) {
-                        // Sum up all accounts (usually just one)
                         for (let acc of incineratorAccounts.value) {
                             const balanceInfo = await connection.getTokenAccountBalance(acc.pubkey);
                             informalBurn += balanceInfo.value.uiAmount;
                         }
                     }
-                } catch(e) { console.log("Incinerator empty or error", e); }
+                } catch(e) {}
 
-                // 4. Calculate Total Burn
                 const totalBurned = formalBurn + informalBurn;
                 const burnPercent = (totalBurned / INITIAL_SUPPLY) * 100;
                 const circulating = currentSupply - informalBurn;
 
-                // 5. Update UI
                 document.getElementById('circ-supply').innerText = circulating.toLocaleString(undefined, {maximumFractionDigits: 0});
-                
-                // Update Burn Bar
-                document.getElementById('burn-bar').style.width = `${Math.max(1, burnPercent)}%`; // Min 1% for visibility
+                document.getElementById('burn-bar').style.width = `${Math.max(1, burnPercent)}%`; 
                 document.getElementById('burn-val').innerText = `${totalBurned.toLocaleString(undefined, {maximumFractionDigits: 0})} (${burnPercent.toFixed(2)}%)`;
 
-                // Update Pie Chart Visual
                 const pPub = (circulating/INITIAL_SUPPLY)*100;
                 const pBurn = burnPercent;
                 const pTreasury = 100 - pPub - pBurn;
                 document.getElementById('pie-visual').style.background = `conic-gradient(var(--neon-green) 0% ${pPub}%, var(--neon-blue) ${pPub}% ${pPub+pTreasury}%, var(--neon-red) ${pPub+pTreasury}% 100%)`;
 
-                // 6. Fetch Top Holders
                 const largestAccounts = await connection.getTokenLargestAccounts(mint);
                 renderWhaleList(largestAccounts.value.map((acc, i) => ({
                     address: acc.address.toString(),
@@ -294,7 +266,6 @@
         }
 
         function generateRealisticWhales() {
-            // Backup simulation if RPC fails
             whaleList.innerHTML = '';
             let pct = 5.2;
             for(let i=0; i<30; i++) {
@@ -311,10 +282,9 @@
             }
         }
 
-        // Init
         fetchChainData();
 
-        /* --- 4. CLOCK --- */
+        /* --- 3. CLOCK --- */
         setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString(); }, 1000);
     </script>
 </body>

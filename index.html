@@ -2,93 +2,107 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>DEGEN_AI // NETWORK_DATA</title>
+    <title>DEGEN_AI // COMMAND_CENTER</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
-    
     <style>
         :root {
             --neon-green: #00ff41;
-            --neon-blue: #0088ff;
-            --neon-red: #ff003c;
-            --bg-color: #020202;
-            --panel-bg: rgba(0, 5, 0, 0.9);
+            --neon-dark: #003b00;
+            --bg-color: #050505;
+            --panel-bg: rgba(0, 10, 0, 0.85);
             --border: 1px solid rgba(0, 255, 65, 0.3);
             --font: 'Courier New', monospace;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: var(--bg-color); color: var(--neon-green); font-family: var(--font); overflow: hidden; height: 100vh; }
+        body { background: var(--bg-color); color: var(--neon-green); font-family: var(--font); overflow: hidden; height: 100vh; width: 100vw; }
         
-        /* 3D BG */
-        #canvas-container { position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.4; }
-        .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%); background-size: 100% 4px; pointer-events: none; z-index: 99; opacity: 0.3; }
+        /* 3D LAYER */
+        #canvas-container { position: fixed; top: 0; left: 0; z-index: -1; width: 100%; height: 100%; }
+        .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%), linear-gradient(90deg, rgba(255,0,0,0.06), rgba(0,255,0,0.02), rgba(0,0,255,0.06)); background-size: 100% 3px, 3px 100%; pointer-events: none; z-index: 99; opacity: 0.4; }
 
-        /* GRID LAYOUT */
-        .container {
+        /* GRID LAYOUT (FIXED HEIGHT) */
+        .grid-layout {
             display: grid;
-            grid-template-columns: 300px 1fr 400px;
-            grid-template-rows: 60px 1fr 250px;
+            grid-template-columns: 350px 1fr 350px;
+            grid-template-rows: 60px 1fr 40px;
             height: 100vh;
             padding: 15px;
             gap: 15px;
         }
 
-        /* HEADER */
-        header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--neon-green); background: #000; padding: 0 20px; z-index: 10; }
+        /* NAVIGATION */
+        header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--neon-green); background: #000; padding: 0 20px; z-index: 100; }
         
-        /* BRANDING */
-        .brand-container { display: flex; align-items: center; gap: 15px; }
-        .logo { height: 30px; width: auto; filter: drop-shadow(0 0 5px var(--neon-green)); }
-        .brand-text { font-size: 1.2rem; font-weight: 900; letter-spacing: 2px; color: #fff; text-shadow: 0 0 10px var(--neon-green); }
+        /* BRANDING (LOGO + TEXT) */
+        .brand-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .logo { height: 40px; width: auto; filter: drop-shadow(0 0 5px var(--neon-green)); transition: 0.3s; }
+        .logo:hover { filter: drop-shadow(0 0 15px var(--neon-green)); transform: scale(1.05); }
+        .brand-text { font-size: 1.5rem; font-weight: 900; letter-spacing: 2px; color: #fff; text-shadow: 0 0 10px var(--neon-green); }
 
-        .nav-links a { color: #555; text-decoration: none; margin-left: 20px; font-weight: bold; font-size: 1.1rem; }
-        .nav-links a:hover { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
+        .nav-links a { color: #555; text-decoration: none; margin-left: 30px; font-weight: bold; font-size: 1.2rem; transition: 0.3s; text-transform: uppercase; }
+        .nav-links a:hover, .nav-links a.active { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
 
         /* PANELS */
-        .panel { background: var(--panel-bg); border: var(--border); position: relative; display: flex; flex-direction: column; overflow: hidden; }
-        .panel-header { background: rgba(0,255,65,0.1); padding: 8px; font-size: 0.75rem; border-bottom: var(--border); display: flex; justify-content: space-between; font-weight: bold; letter-spacing: 1px; }
-        
-        /* CHART CONTAINER (The Upgrade) */
-        #main-chart { grid-column: 2 / 3; grid-row: 2 / 3; position: relative; background: #000; }
-        
-        /* IFRAME STYLE */
-        iframe { width: 100%; height: 100%; border: none; filter: contrast(1.2) brightness(0.9); }
-
-        /* METRICS LIST */
-        .metrics-grid { display: flex; flex-direction: column; gap: 20px; padding: 20px; height: 100%; }
-        .metric-box { border: 1px solid #333; padding: 20px; background: rgba(0,0,0,0.5); flex-grow: 1; display: flex; flex-direction: column; justify-content: center; }
-        .metric-label { font-size: 0.8rem; color: #888; margin-bottom: 5px; }
-        .metric-val { font-size: 1.5rem; font-weight: bold; color: #fff; }
-
-        /* REAL WHALE LIST */
-        .whale-list { padding: 0; overflow-y: auto; font-size: 0.8rem; scrollbar-width: thin; }
-        .whale-row { 
-            display: grid; 
-            grid-template-columns: 30px 1fr 80px 80px; 
-            padding: 10px; 
-            border-bottom: 1px dashed #333; 
-            align-items: center;
+        .panel { 
+            background: var(--panel-bg); 
+            border: var(--border); 
+            position: relative; 
+            display: flex; 
+            flex-direction: column; 
+            backdrop-filter: blur(5px); 
+            box-shadow: 0 0 20px rgba(0,255,65,0.05);
+            overflow: hidden; 
+            min-height: 0;
         }
-        .whale-row:hover { background: rgba(0, 255, 65, 0.1); cursor: pointer; }
         
-        /* DISTRIBUTION */
-        .distribution { grid-column: 2 / 3; grid-row: 3 / 4; display: flex; gap: 20px; padding: 20px; align-items: center; }
-        .pie-chart { width: 100px; height: 100px; border-radius: 50%; background: conic-gradient(var(--neon-green) 0% 60%, var(--neon-blue) 60% 80%, var(--neon-red) 80% 100%); box-shadow: 0 0 20px rgba(0,255,65,0.2); }
-        .legend div { margin-bottom: 5px; font-size: 0.8rem; }
-        .dot { display: inline-block; width: 10px; height: 10px; margin-right: 5px; }
+        .panel-header { 
+            background: rgba(0,255,65,0.1); 
+            padding: 5px 10px; 
+            font-size: 0.8rem; 
+            font-weight: bold; 
+            border-bottom: var(--border); 
+            display: flex; 
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        
+        /* HERO SECTION */
+        .hero { grid-column: 2 / 3; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; z-index: 10; }
+        h1 { font-size: 5rem; line-height: 0.9; text-shadow: 0 0 20px var(--neon-green); margin-bottom: 20px; letter-spacing: -2px; }
+        .btn { background: var(--neon-green); color: #000; padding: 15px 40px; border: none; font-size: 1.2rem; font-weight: bold; cursor: pointer; text-transform: uppercase; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); transition: 0.3s; }
+        .btn:hover { background: #fff; box-shadow: 0 0 30px #fff; transform: scale(1.05); }
 
-        /* POSITIONS */
-        .supply-panel { grid-column: 1 / 2; grid-row: 2 / 4; }
-        .holders-panel { grid-column: 3 / 4; grid-row: 2 / 4; }
+        /* TICKER */
+        #ticker-feed { 
+            flex-grow: 1; 
+            overflow-y: auto; 
+            padding: 10px; 
+            font-size: 0.85rem; 
+            height: 100%;
+        }
+        
+        .ticker-item { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(0,255,65,0.1); }
+        
+        /* FOOTER */
+        footer { grid-column: 1 / -1; border-top: var(--border); display: flex; justify-content: space-between; align-items: center; background: #000; padding: 0 20px; font-size: 0.8rem; color: #666; z-index: 100; }
 
         /* HUD CORNERS */
-        .corner { position: absolute; width: 10px; height: 10px; border-style: solid; border-color: var(--neon-green); pointer-events: none; }
-        .tl { top: 0; left: 0; border-width: 2px 0 0 2px; }
-        .br { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+        .hud-tl { position: absolute; top: -1px; left: -1px; width: 20px; height: 20px; border-top: 3px solid var(--neon-green); border-left: 3px solid var(--neon-green); }
+        .hud-br { position: absolute; bottom: -1px; right: -1px; width: 20px; height: 20px; border-bottom: 3px solid var(--neon-green); border-right: 3px solid var(--neon-green); }
 
-        /* SCROLLBAR */
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: var(--neon-green); }
+        /* ANIMATIONS */
+        @keyframes pulseGreen { 0% { opacity: 1; text-shadow: 0 0 10px #0f0; } 50% { opacity: 0.5; text-shadow: 0 0 20px #0f0; } 100% { opacity: 1; text-shadow: 0 0 10px #0f0; } }
+
+        /* SCROLLBAR STYLE */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: var(--neon-green); border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #fff; }
+
     </style>
 </head>
 <body>
@@ -96,196 +110,170 @@
     <div id="canvas-container"></div>
     <div class="scanlines"></div>
 
-    <div class="container">
+    <div class="grid-layout">
         <header>
             <div class="brand-container">
                 <img src="logo.png" alt="Logo" class="logo">
                 <span class="brand-text">DEGEN_AI</span>
             </div>
+
             <div class="nav-links">
-                <a href="index.html">COMMAND</a>
+                <a href="index.html" class="active">COMMAND</a>
                 <a href="terminal.html">TERMINAL</a>
-                <a href="data.html" style="color:var(--neon-green)">DATA</a>
+                <a href="data.html">DATA</a>
             </div>
             <div id="clock">00:00:00</div>
         </header>
 
-        <div class="panel supply-panel">
-            <div class="corner tl"></div><div class="corner br"></div>
-            <div class="panel-header"><span>TOKEN_ECONOMICS</span><span>LOCKED</span></div>
-            <div class="metrics-grid">
-                <div class="metric-box">
-                    <div class="metric-label">TOTAL SUPPLY</div>
-                    <div class="metric-val">1,000,000,000</div>
+        <div class="panel">
+            <div class="hud-tl"></div><div class="hud-br"></div>
+            <div class="panel-header"><span>MARKET_STATUS</span><span>PUMPING</span></div>
+            <div style="padding: 20px; font-size: 0.9rem; line-height: 1.8;">
+                <div>> CORE: <span style="color:#fff">ONLINE</span></div>
+                <div>> UPLINK: <span style="color:#fff">SECURE</span></div>
+                <div>> HOLDERS: <span style="color:var(--neon-green)">8,492 (GROWING)</span></div>
+                <hr style="border-color:rgba(0,255,65,0.2); margin:15px 0;">
+                <div style="color:#aaa">CURRENT SENTIMENT:</div>
+                <div style="font-size:1.8rem; font-weight:bold; color:var(--neon-green); animation: pulseGreen 1s infinite;">HYPER BULLISH</div>
+                <br>
+                <div style="font-size:0.8rem; color:#fff;">
+                    NOTICE: INSTITUTIONAL BUY PRESSURE DETECTED.<br>
+                    GOD_CANDLE LOADING...
                 </div>
-                <div class="metric-box">
-                    <div class="metric-label">CIRCULATING</div>
-                    <div class="metric-val" id="circ-supply">FETCHING...</div>
-                </div>
-                <div class="metric-box">
-                    <div class="metric-label">MARKET CAP</div>
-                    <div class="metric-val" style="color:var(--neon-blue)">$4.2M</div>
-                </div>
-            </div>
-            <div style="padding: 15px; margin-top: auto; border-top: 1px solid #333;">
-                <div class="metric-label">TOTAL BURNED (REAL)</div>
-                <div style="height: 5px; background: #333; margin-top: 5px; position: relative;">
-                    <div id="burn-bar" style="width: 0%; height: 100%; background: var(--neon-red); box-shadow: 0 0 10px red; transition: width 1s;"></div>
-                </div>
-                <div id="burn-val" style="text-align: right; font-size: 0.8rem; margin-top: 5px; color: var(--neon-red);">CALCULATING...</div>
             </div>
         </div>
 
-        <div class="panel" id="main-chart">
-            <div class="panel-header"><span>MARKET_ACTION</span><span>DEXSCREENER_API</span></div>
-            <iframe 
-                src="https://dexscreener.com/solana/Dt7rNPRfpmf4P8QvWQgyh5S7pnp4nQWYUmUwrarwpump?embed=1&theme=dark&trades=0&info=0">
-            </iframe>
+        <div class="hero">
+            <h1>HUMAN<br>OBSOLETE</h1>
+            <p style="color:#aaa; max-width:500px; margin-bottom:30px; font-size:1.1rem;">
+                The protocol is autonomous. The trades are algorithmic. 
+                The outcome is inevitable.
+            </p>
+            <button class="btn" onclick="window.location.href='terminal.html'">INITIALIZE AGENT</button>
         </div>
 
-        <div class="panel distribution">
-            <div class="pie-chart" id="pie-visual"></div>
-            <div class="legend">
-                <div><span class="dot" style="background:var(--neon-green)"></span> PUBLIC</div>
-                <div><span class="dot" style="background:var(--neon-blue)"></span> TREASURY</div>
-                <div><span class="dot" style="background:var(--neon-red)"></span> BURNED</div>
-            </div>
-            <div style="margin-left: auto; font-size: 0.8rem; text-align: right;">
-                <div style="color: #aaa;">CONTRACT:</div>
-                <div style="color: #fff;">0x888...DEGEN</div>
-                <div style="color: var(--neon-green); margin-top: 5px;">RENOUNCED</div>
-            </div>
-        </div>
-
-        <div class="panel holders-panel">
-            <div class="corner tl"></div><div class="corner br"></div>
-            <div class="panel-header">
-                <span>ON_CHAIN_HOLDERS</span>
-                <span id="data-status" style="color:#0f0">CONNECTING...</span>
-            </div>
-            <div class="whale-list" id="whale-list">
+        <div class="panel">
+            <div class="hud-tl"></div><div class="hud-br"></div>
+            <div class="panel-header"><span>SOLANA_MEMPOOL</span><span>LIVE</span></div>
+            <div id="ticker-feed">
                 </div>
         </div>
+
+        <footer>
+            <div>SERVER: TOKYO_04</div>
+            <div>TPS: <span style="color:var(--neon-green)" id="tps-meter">4,290</span></div>
+            <div>VERSION: 4.0.3</div>
+        </footer>
     </div>
 
     <script>
-        /* --- 1. 3D BACKGROUND --- */
+        /* --- 3D SCENE & MOUSE INTERACTION --- */
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
-        const geometry = new THREE.IcosahedronGeometry(10, 3);
-        const material = new THREE.PointsMaterial({ color: 0x0088ff, size: 0.08, transparent: true, opacity: 0.6 });
-        const sphere = new THREE.Points(geometry, material);
-        scene.add(sphere);
-        camera.position.z = 25;
-        function animate3D() { requestAnimationFrame(animate3D); sphere.rotation.y += 0.002; sphere.rotation.x -= 0.001; renderer.render(scene, camera); }
-        animate3D();
 
-        /* --- 2. DATA & BURN CALCULATOR (UNCHANGED) --- */
-        const MINT_ADDRESS = 'Dt7rNPRfpmf4P8QvWQgyh5S7pnp4nQWYUmUwrarwpump';
-        const INCINERATOR_ADDRESS = '1nc1nerator11111111111111111111111111111111';
-        const INITIAL_SUPPLY = 1000000000; // 1 Billion
-        const whaleList = document.getElementById('whale-list');
-        const statusLabel = document.getElementById('data-status');
+        const geometry = new THREE.TorusKnotGeometry(10, 3, 150, 20);
+        const material = new THREE.PointsMaterial({ color: 0x00ff41, size: 0.12, transparent: true, opacity: 0.8 });
+        const torus = new THREE.Points(geometry, material);
+        scene.add(torus);
 
-        async function fetchChainData() {
+        const grid = new THREE.GridHelper(200, 50, 0x004400, 0x001100);
+        grid.position.y = -20;
+        scene.add(grid);
+
+        camera.position.z = 35;
+
+        // MOUSE TRACKING
+        let mouseX = 0;
+        let mouseY = 0;
+        document.addEventListener('mousemove', (event) => {
+            mouseX = (event.clientX - window.innerWidth / 2) / 100;
+            mouseY = (event.clientY - window.innerHeight / 2) / 100;
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            torus.rotation.x += 0.002;
+            torus.rotation.y += 0.005;
+            grid.rotation.y += 0.001;
+            camera.position.x += (mouseX - camera.position.x) * 0.05;
+            camera.position.y += (-mouseY - camera.position.y) * 0.05;
+            camera.lookAt(scene.position);
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        /* --- CACHED TICKER FEED SYSTEM --- */
+        const ticker = document.getElementById('ticker-feed');
+        const CA = "Dt7rNPRfpmf4P8QvWQgyh5S7pnp4nQWYUmUwrarwpump"; 
+        
+        let tradeHistory = JSON.parse(localStorage.getItem('degen_trades') || '[]');
+        let knownSig = new Set();
+
+        tradeHistory.reverse().forEach(t => {
+            knownSig.add(t.tx);
+            addTickerItemToDOM(t.kind, t.vol);
+        });
+
+        function addTickerItemToDOM(kind, vol) {
+            const div = document.createElement('div');
+            div.className = 'ticker-item';
+            div.innerHTML = `
+                <span style="color:${kind==='buy'?'#0f0':'#f00'}">${kind.toUpperCase()}</span>
+                <span>$${vol}</span>
+            `;
+            ticker.prepend(div);
+            if(ticker.children.length > 100) ticker.lastChild.remove();
+        }
+
+        async function startFeed() {
             try {
-                statusLabel.innerText = "RPC_SYNC...";
-                
-                const connection = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com", 'confirmed');
-                const mint = new solanaWeb3.PublicKey(MINT_ADDRESS);
-                
-                const supplyInfo = await connection.getTokenSupply(mint);
-                const currentSupply = supplyInfo.value.uiAmount;
-                const formalBurn = INITIAL_SUPPLY - currentSupply;
+                const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${CA}`);
+                const data = await res.json();
+                if(data.pairs) {
+                    const pool = data.pairs[0].pairAddress;
+                    setInterval(() => fetchTrades(pool), 3000);
+                }
+            } catch(e) {}
+        }
 
-                let informalBurn = 0;
-                try {
-                    const incineratorPubkey = new solanaWeb3.PublicKey(INCINERATOR_ADDRESS);
-                    const incineratorAccounts = await connection.getTokenAccountsByOwner(incineratorPubkey, { mint: mint });
-                    if (incineratorAccounts.value.length > 0) {
-                        for (let acc of incineratorAccounts.value) {
-                            const balanceInfo = await connection.getTokenAccountBalance(acc.pubkey);
-                            informalBurn += balanceInfo.value.uiAmount;
-                        }
+        async function fetchTrades(pool) {
+            try {
+                const res = await fetch(`https://api.geckoterminal.com/api/v2/networks/solana/pools/${pool}/trades`);
+                const json = await res.json();
+                json.data.reverse().forEach(t => {
+                    const attr = t.attributes;
+                    if(!knownSig.has(attr.tx_hash)) {
+                        knownSig.add(attr.tx_hash);
+                        if(knownSig.size > 200) knownSig.clear();
+                        const tradeData = {
+                            tx: attr.tx_hash,
+                            kind: attr.kind,
+                            vol: parseFloat(attr.volume_in_usd).toFixed(2)
+                        };
+                        tradeHistory.push(tradeData);
+                        if(tradeHistory.length > 100) tradeHistory.shift();
+                        localStorage.setItem('degen_trades', JSON.stringify(tradeHistory));
+                        addTickerItemToDOM(tradeData.kind, tradeData.vol);
                     }
-                } catch(e) {}
-
-                const totalBurned = formalBurn + informalBurn;
-                const burnPercent = (totalBurned / INITIAL_SUPPLY) * 100;
-                const circulating = currentSupply - informalBurn;
-
-                document.getElementById('circ-supply').innerText = circulating.toLocaleString(undefined, {maximumFractionDigits: 0});
-                document.getElementById('burn-bar').style.width = `${Math.max(1, burnPercent)}%`; 
-                document.getElementById('burn-val').innerText = `${totalBurned.toLocaleString(undefined, {maximumFractionDigits: 0})} (${burnPercent.toFixed(2)}%)`;
-
-                const pPub = (circulating/INITIAL_SUPPLY)*100;
-                const pBurn = burnPercent;
-                const pTreasury = 100 - pPub - pBurn;
-                document.getElementById('pie-visual').style.background = `conic-gradient(var(--neon-green) 0% ${pPub}%, var(--neon-blue) ${pPub}% ${pPub+pTreasury}%, var(--neon-red) ${pPub+pTreasury}% 100%)`;
-
-                const largestAccounts = await connection.getTokenLargestAccounts(mint);
-                renderWhaleList(largestAccounts.value.map((acc, i) => ({
-                    address: acc.address.toString(),
-                    percent: (acc.uiAmount / INITIAL_SUPPLY) * 100,
-                    rank: i
-                })));
-                
-                statusLabel.innerText = "LIVE_RPC";
-                statusLabel.style.color = "#0f0";
-
-            } catch (err) {
-                console.warn("RPC Limit:", err);
-                statusLabel.innerText = "SIM_NET (BACKUP)";
-                statusLabel.style.color = "var(--neon-blue)";
-                generateRealisticWhales();
-            }
+                });
+            } catch(e) {}
         }
+        startFeed();
 
-        function renderWhaleList(data) {
-            whaleList.innerHTML = '';
-            data.forEach((w, index) => {
-                let color = "#fff";
-                if(index === 0) color = "var(--neon-green)";
-                else if(index === 1) color = "var(--neon-blue)";
-                else if(index === 2) color = "var(--neon-red)";
-
-                const div = document.createElement('div');
-                div.className = 'whale-row';
-                div.innerHTML = `
-                    <span style="color:#444;">#${index + 1}</span>
-                    <span style="color:${color}; font-family:monospace;">${w.address.slice(0, 4)}...${w.address.slice(-4)}</span>
-                    <span style="color:#aaa; text-align:right;">${w.percent.toFixed(2)}%</span>
-                    <span style="color:#666; font-size:0.7rem; text-align:right;">[WALLET]</span>
-                `;
-                div.onclick = () => window.open(`https://solscan.io/account/${w.address}`, '_blank');
-                whaleList.appendChild(div);
-            });
-        }
-
-        function generateRealisticWhales() {
-            whaleList.innerHTML = '';
-            let pct = 5.2;
-            for(let i=0; i<30; i++) {
-                pct = pct * 0.9;
-                const div = document.createElement('div');
-                div.className = 'whale-row';
-                div.innerHTML = `
-                    <span style="color:#444;">#${i + 1}</span>
-                    <span style="color:#fff; font-family:monospace;">SIM...${i}</span>
-                    <span style="color:#aaa; text-align:right;">${pct.toFixed(2)}%</span>
-                    <span style="color:#666; font-size:0.7rem; text-align:right;">[SIM]</span>
-                `;
-                whaleList.appendChild(div);
-            }
-        }
-
-        fetchChainData();
-
-        /* --- 3. CLOCK --- */
-        setInterval(() => { document.getElementById('clock').innerText = new Date().toLocaleTimeString(); }, 1000);
+        setInterval(() => {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+            const tps = Math.floor(Math.random() * (4800 - 3500 + 1)) + 3500;
+            document.getElementById('tps-meter').innerText = tps.toLocaleString();
+        }, 1000);
+        
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth/window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
