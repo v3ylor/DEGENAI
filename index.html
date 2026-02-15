@@ -146,8 +146,8 @@
 
         <footer>
             <div>SERVER: TOKYO_04</div>
-            <div>GAS: <span style="color:var(--neon-green)">12 GWEI</span></div>
-            <div>VERSION: 4.0.1</div>
+            <div>TPS: <span style="color:var(--neon-green)" id="tps-meter">4,290</span></div>
+            <div>VERSION: 4.0.2</div>
         </footer>
     </div>
 
@@ -264,8 +264,13 @@
         }
         startFeed();
 
-        // Clock
-        setInterval(() => document.getElementById('clock').innerText = new Date().toLocaleTimeString(), 1000);
+        // Clock & TPS SIMULATOR
+        setInterval(() => {
+            document.getElementById('clock').innerText = new Date().toLocaleTimeString();
+            // Fluctuate TPS between 3500 and 4800 to look like real Solana traffic
+            const tps = Math.floor(Math.random() * (4800 - 3500 + 1)) + 3500;
+            document.getElementById('tps-meter').innerText = tps.toLocaleString();
+        }, 1000);
         
         // Resize
         window.addEventListener('resize', () => {
