@@ -7,34 +7,75 @@
     <style>
         :root { --neon-green: #00ff41; --bg-color: #020202; --font: 'Courier New', monospace; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: var(--bg-color); color: var(--neon-green); font-family: var(--font); overflow: hidden; }
+        body { background: var(--bg-color); color: var(--neon-green); font-family: var(--font); overflow: hidden; height: 100vh; width: 100vw; }
         
         /* 3D BG */
         #canvas-container { position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.6; }
 
-        /* LAYOUT */
-        .container { max-width: 1000px; margin: 0 auto; height: 100vh; display: flex; flex-direction: column; padding: 20px; }
+        /* LAYOUT CONTAINER */
+        .container { 
+            max-width: 1000px; 
+            margin: 0 auto; 
+            height: 100vh; /* Full Viewport Height */
+            display: flex; 
+            flex-direction: column; 
+            padding: 20px; 
+        }
 
         /* NAV */
-        header { display: flex; justify-content: space-between; padding: 20px; border-bottom: 1px solid #333; background: rgba(0,0,0,0.8); }
+        header { 
+            display: flex; 
+            justify-content: space-between; 
+            padding: 20px; 
+            border-bottom: 1px solid #333; 
+            background: rgba(0,0,0,0.8); 
+            flex-shrink: 0; /* Header stays fixed size */
+        }
         .nav-links a { color: #555; text-decoration: none; margin-left: 20px; font-weight: bold; }
         .nav-links a:hover { color: var(--neon-green); }
 
-        /* TERMINAL WINDOW */
+        /* TERMINAL WINDOW (THE FIX) */
         .terminal-box {
-            flex-grow: 1;
+            flex-grow: 1; /* Fills remaining space */
             border: 1px solid var(--neon-green);
             background: rgba(0, 10, 0, 0.9);
             margin-top: 20px;
-            display: flex; flex-direction: column;
+            display: flex; 
+            flex-direction: column;
             box-shadow: 0 0 30px rgba(0, 255, 65, 0.1);
+            overflow: hidden; /* CRITICAL: Keeps layout rigid */
+            min-height: 0;    /* CRITICAL: Allows inner scroll */
         }
-        .term-header { background: #111; padding: 10px; border-bottom: 1px solid #333; display: flex; gap: 10px; }
+
+        .term-header { 
+            background: #111; 
+            padding: 10px; 
+            border-bottom: 1px solid #333; 
+            display: flex; 
+            gap: 10px;
+            flex-shrink: 0; /* Header won't shrink */
+        }
         .dot { width: 12px; height: 12px; border-radius: 50%; }
         .red { background: #ff5f56; } .yellow { background: #ffbd2e; } .green { background: #27c93f; }
 
-        #output { flex-grow: 1; padding: 20px; overflow-y: auto; font-size: 1rem; line-height: 1.6; }
-        .input-area { display: flex; padding: 15px; border-top: 1px solid #333; background: #000; }
+        /* SCROLLABLE OUTPUT AREA */
+        #output { 
+            flex-grow: 1; 
+            padding: 20px; 
+            overflow-y: auto; /* Scrollbar appears HERE */
+            font-size: 1rem; 
+            line-height: 1.6; 
+            scroll-behavior: smooth;
+        }
+
+        /* INPUT AREA (FIXED BOTTOM) */
+        .input-area { 
+            display: flex; 
+            padding: 15px; 
+            border-top: 1px solid #333; 
+            background: #000;
+            flex-shrink: 0; /* CRITICAL: Never squashes */
+        }
         input { background: transparent; border: none; color: #fff; width: 100%; font-family: inherit; font-size: 1.1rem; outline: none; margin-left: 10px; }
 
         /* AI MESSAGE STYLE */
@@ -45,6 +86,11 @@
         
         .error-msg { color: #ff003c; }
         .sys-msg { color: #555; font-style: italic; margin-bottom: 10px; }
+
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #000; }
+        ::-webkit-scrollbar-thumb { background: var(--neon-green); border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -120,7 +166,9 @@
             div.innerHTML = msg.content;
             output.appendChild(div);
         });
-        output.scrollTop = output.scrollHeight;
+        
+        // Scroll to bottom immediately
+        setTimeout(() => output.scrollTop = output.scrollHeight, 100);
 
         // 2. Helper to Save & Render
         function appendMessage(type, content, color = null) {
@@ -130,6 +178,8 @@
             if(color) div.style.color = color;
             div.innerHTML = content;
             output.appendChild(div);
+            
+            // Auto-Scroll to Bottom
             output.scrollTop = output.scrollHeight;
 
             // Save
