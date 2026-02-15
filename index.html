@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>$DEGENAGENT // COMMAND_CENTER</title>
+    <title>DEGEN_AI // COMMAND_CENTER</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root {
@@ -33,9 +33,15 @@
         /* NAVIGATION */
         header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--neon-green); background: #000; padding: 0 20px; z-index: 100; }
         
-        /* LOGO STYLE */
+        /* BRANDING (LOGO + TEXT) */
+        .brand-container {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
         .logo { height: 40px; width: auto; filter: drop-shadow(0 0 5px var(--neon-green)); transition: 0.3s; }
         .logo:hover { filter: drop-shadow(0 0 15px var(--neon-green)); transform: scale(1.05); }
+        .brand-text { font-size: 1.5rem; font-weight: 900; letter-spacing: 2px; color: #fff; text-shadow: 0 0 10px var(--neon-green); }
 
         .nav-links a { color: #555; text-decoration: none; margin-left: 30px; font-weight: bold; font-size: 1.2rem; transition: 0.3s; text-transform: uppercase; }
         .nav-links a:hover, .nav-links a.active { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
@@ -106,8 +112,9 @@
 
     <div class="grid-layout">
         <header>
-            <div class="brand">
-                <img src="logo.png" alt="$DEGENAGENT" class="logo">
+            <div class="brand-container">
+                <img src="logo.png" alt="Logo" class="logo">
+                <span class="brand-text">DEGEN_AI</span>
             </div>
 
             <div class="nav-links">
