@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>DEGEN_AI // WHALE_MONITOR</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.min.js"></script>
     <style>
         :root {
             --neon-green: #00ff41;
@@ -82,19 +83,16 @@
 
         <div class="panel">
             <div class="corner tl"></div><div class="corner br"></div>
-            <div class="panel-header"><span>TARGET_SELECTION</span><span>SOLSCAN_PRO_V2</span></div>
+            <div class="panel-header"><span>TARGET_SELECTION</span><span>PUBLIC_RPC_NODE</span></div>
             <div class="search-box">
-                <div style="font-size:0.8rem; color:#aaa;">AUTHENTICATION: <span style="color:var(--neon-green)">KEY_LOADED</span></div>
-                
-                <div style="font-size:0.8rem; color:#aaa; margin-top:10px;">TARGET WALLET ADDRESS</div>
+                <div style="font-size:0.8rem; color:#aaa;">TARGET WALLET ADDRESS</div>
                 <input type="text" id="wallet-input" placeholder="Enter Solana Address...">
-                
-                <button class="btn" onclick="startSolscanMonitor()">INITIALIZE UPLINK</button>
+                <button class="btn" onclick="startKeylessMonitor()">INITIALIZE UPLINK</button>
             </div>
             <div style="padding:20px; font-size:0.8rem; color:#666; line-height:1.6;">
-                > AUTHENTICATED ACCESS<br>
-                > FETCHES REAL-TIME PRICES<br>
-                > PARSES SPL TOKEN ACCOUNTS
+                > CONNECTS VIA PUBLIC RPC<br>
+                > PRICES VIA JUPITER (FREE)<br>
+                > NO API KEYS REQUIRED
             </div>
         </div>
 
@@ -115,7 +113,7 @@
             <div class="corner tl"></div><div class="corner br"></div>
             <div class="panel-header"><span>ACTIVITY_LOG</span><span>REALTIME</span></div>
             <div id="tx-log">
-                <div class="log-item">> SYSTEM READY. KEY INTEGRATED.</div>
+                <div class="log-item">> SYSTEM READY. NO KEYS NEEDED.</div>
             </div>
         </div>
     </div>
@@ -135,12 +133,31 @@
         function animate() { requestAnimationFrame(animate); sphere.rotation.y += 0.005; renderer.render(scene, camera); }
         animate();
 
-        /* --- SOLSCAN V2 PRO API LOGIC --- */
+        /* --- KEYLESS MONITORING LOGIC --- */
         
-        // YOUR V2 API KEY
-        const API_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjcmVhdGVkQXQiOjE3NzExOTQ0NDM1NjEsImVtYWlsIjoiYmVuamFtaW5iYWJhbG9sYTVAZ21haWwuY29tIiwiYWN0aW9uIjoidG9rZW4tYXBpIiwiYXBpVmVyc2lvbiI6InYyIiwiaWF0IjoxNzcxMTk0NDQzfQ.UWoSGjSRpUSLsD4IYcoR8b6ecjRX5UunPeXXlcRaZ5U";
+        // List of Free Public RPCs (Failover System)
+        const RPC_ENDPOINTS = [
+            "https://api.mainnet-beta.solana.com", 
+            "https://solana-mainnet.rpc.extrnode.com",
+            "https://rpc.ankr.com/solana"
+        ];
+        
+        let connection;
 
-        async function startSolscanMonitor() {
+        async function getWorkingConnection() {
+            for (let rpc of RPC_ENDPOINTS) {
+                try {
+                    const conn = new solanaWeb3.Connection(rpc, "confirmed");
+                    const version = await conn.getVersion(); // Simple test
+                    return conn;
+                } catch (e) {
+                    console.warn(`RPC ${rpc} failed, switching...`);
+                }
+            }
+            throw new Error("All Public RPCs Busy.");
+        }
+
+        async function startKeylessMonitor() {
             const address = document.getElementById('wallet-input').value.trim();
             const logBox = document.getElementById('tx-log');
 
@@ -148,71 +165,80 @@
 
             document.getElementById('initial-state').style.display = 'none';
             document.getElementById('monitor-display').style.display = 'flex';
-            logBox.innerHTML = `<div class='log-item' style='color:var(--neon-blue)'>> CONNECTING TO SOLSCAN V2...</div>` + logBox.innerHTML;
+            logBox.innerHTML = `<div class='log-item' style='color:var(--neon-blue)'>> SEARCHING FOR ACTIVE RPC...</div>` + logBox.innerHTML;
 
             try {
-                // FETCH 1: TOKEN ACCOUNTS (Includes prices in V2)
-                // We use the 'pro-api' V2 endpoint which matches your key type
-                const tokenRes = await fetch(`https://pro-api.solscan.io/v2.0/account/token-accounts?address=${address}&type=token&page=1&page_size=40`, {
-                    headers: { 'token': API_KEY } // V2 uses 'token' header
-                });
+                // 1. Connect to Blockchain
+                connection = await getWorkingConnection();
+                const publicKey = new solanaWeb3.PublicKey(address);
+                logBox.innerHTML = `<div class='log-item'>> CONNECTED TO RPC NODE.</div>` + logBox.innerHTML;
 
-                if(tokenRes.status === 401) throw new Error("401 Unauthorized - Key Invalid");
-                if(!tokenRes.ok) throw new Error("API Error: " + tokenRes.status);
+                // 2. Get SOL Balance
+                const solBal = await connection.getBalance(publicKey);
+                const solAmount = solBal / 1000000000;
+
+                // 3. Get Token Accounts
+                const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
+                    programId: new solanaWeb3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+                });
                 
-                const tokenData = await tokenRes.json();
+                logBox.innerHTML = `<div class='log-item'>> FOUND ${tokenAccounts.value.length} TOKENS.</div>` + logBox.innerHTML;
 
-                // FETCH 2: SOL BALANCE (Account Detail)
-                const accountRes = await fetch(`https://pro-api.solscan.io/v2.0/account/detail?address=${address}`, {
-                    headers: { 'token': API_KEY }
+                // 4. Build Token List for Pricing
+                let tokensToPrice = [];
+                // Add SOL first
+                tokensToPrice.push({ mint: "So11111111111111111111111111111111111111112", amount: solAmount, symbol: "SOL" });
+
+                tokenAccounts.value.forEach(acc => {
+                    const info = acc.account.data.parsed.info;
+                    const amount = info.tokenAmount.uiAmount;
+                    const mint = info.mint;
+                    if(amount > 0) {
+                        tokensToPrice.push({ mint: mint, amount: amount, symbol: "UNK" });
+                    }
                 });
-                const accountData = await accountRes.json();
 
-                // RENDER LOGIC
+                // 5. Get Prices from Jupiter (Free, Public)
+                logBox.innerHTML = `<div class='log-item' style='color:var(--neon-yellow)'>> FETCHING PRICES (JUPITER)...</div>` + logBox.innerHTML;
+                
+                // Chunk requests (Jupiter accepts up to 100 ids)
+                const mintIds = tokensToPrice.map(t => t.mint).slice(0, 99).join(',');
+                
+                const priceRes = await fetch(`https://api.jup.ag/price/v2?ids=${mintIds}`);
+                const priceData = await priceRes.json();
+
+                // 6. Calculate Net Worth
                 let totalValue = 0;
                 let tokenHtml = "";
 
-                // 1. ADD SOL (If available in account detail)
-                if (accountData.success && accountData.data) {
-                    const solBal = accountData.data.lamports / 1000000000;
-                    const solPrice = 200; // Fallback price if API doesn't provide it directly in this endpoint
-                    // Ideally we'd fetch SOL price, but for stability let's focus on tokens first
-                    // or assume Solscan includes Wrapped SOL in the token list (which it often does)
-                }
-
-                // 2. PROCESS TOKENS
-                if (tokenData.success && tokenData.data) {
-                    tokenData.data.forEach(t => {
-                        // Calculate Amount
-                        const decimals = t.token_decimals || 0;
-                        const amount = t.amount / Math.pow(10, decimals);
-                        
-                        // Price comes from V2 API usually
-                        const price = t.price_usdt || 0;
-                        const value = amount * price;
-
-                        if (value > 0.5) { // Filter dust
-                            totalValue += value;
-                            tokenHtml += `
-                                <div class="token-item">
-                                    <div class="token-name">
-                                        <img src="${t.token_icon || 'https://via.placeholder.com/20'}" class="token-icon" onerror="this.style.display='none'">
-                                        ${t.token_symbol || 'UNK'}
-                                    </div>
-                                    <div style="text-align:right">
-                                        <div class="token-val">$${value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
-                                        <div style="font-size:0.7rem; color:#666;">${amount.toLocaleString(undefined, {maximumFractionDigits: 2})} ${t.token_symbol}</div>
-                                    </div>
+                tokensToPrice.forEach(t => {
+                    let price = 0;
+                    if(priceData.data && priceData.data[t.mint]) {
+                        price = parseFloat(priceData.data[t.mint].price);
+                    }
+                    
+                    const value = t.amount * price;
+                    
+                    if(value > 0.01) { // Filter dust
+                        totalValue += value;
+                        tokenHtml += `
+                            <div class="token-item">
+                                <div class="token-name">
+                                    <div style="width:20px; height:20px; background:#333; border-radius:50%; margin-right:10px; display:flex; justify-content:center; align-items:center; font-size:10px;">$</div>
+                                    ${t.mint.slice(0,4)}...${t.mint.slice(-4)}
                                 </div>
-                            `;
-                        }
-                    });
-                }
+                                <div style="text-align:right">
+                                    <div class="token-val">$${value.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                                    <div style="font-size:0.7rem; color:#666;">${t.amount.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
 
                 document.getElementById('total-balance').innerText = "$" + totalValue.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
                 document.getElementById('token-list').innerHTML = tokenHtml;
-                
-                logBox.innerHTML = `<div class='log-item' style='color:var(--neon-green)'>> DATA RECEIVED.</div>` + logBox.innerHTML;
+                logBox.innerHTML = `<div class='log-item' style='color:var(--neon-green)'>> SCAN COMPLETE.</div>` + logBox.innerHTML;
 
             } catch(e) {
                 console.error(e);
