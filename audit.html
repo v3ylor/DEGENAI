@@ -22,7 +22,7 @@
         .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%); background-size: 100% 4px; pointer-events: none; z-index: 99; opacity: 0.3; }
         .matrix-bg {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2;
-            background-image: url('https://i.imgur.com/0f80760.png'); /* Subtle hex code texture */
+            background-image: url('https://i.imgur.com/0f80760.png');
             opacity: 0.1; animation: scrollDown 20s linear infinite;
         }
         @keyframes scrollDown { from { background-position: 0 0; } to { background-position: 0 1000px; } }
@@ -82,6 +82,22 @@
         .detail-label { font-size: 0.7rem; color: #888; letter-spacing: 1px; margin-bottom: 5px; }
         .detail-val { font-size: 1.2rem; color: #fff; font-weight: bold; text-shadow: 0 0 5px var(--neon-green); }
 
+        /* HISTORY LIST */
+        #history-list { padding: 0; overflow-y: auto; height: 100%; }
+        .history-item { 
+            padding: 15px; 
+            border-bottom: 1px solid #222; 
+            cursor: pointer; 
+            transition: 0.2s; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+        }
+        .history-item:hover { background: rgba(0,255,65,0.1); border-left: 3px solid var(--neon-green); }
+        .hist-ca { font-size: 0.8rem; color: #aaa; font-family: monospace; }
+        .hist-score { font-weight: bold; font-size: 1rem; }
+        .hist-time { font-size: 0.6rem; color: #555; display: block; margin-top: 3px; }
+
         /* ANIMATIONS */
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
@@ -91,6 +107,10 @@
         .corner { position: absolute; width: 10px; height: 10px; border-style: solid; border-color: var(--neon-green); pointer-events: none; }
         .tl { top: 0; left: 0; border-width: 2px 0 0 2px; }
         .br { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+        
+        /* SCROLLBAR */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-thumb { background: var(--neon-green); }
     </style>
 </head>
 <body>
@@ -176,22 +196,21 @@
 
         <div class="panel">
             <div class="corner tl"></div><div class="corner br"></div>
-            <div class="panel-header"><span>SYSTEM_LOG</span><span>LIVE_FEED</span></div>
-            <div id="audit-log" style="padding:15px; font-size:0.8rem; color:#666; font-family:monospace; overflow-y: auto; height: 100%;">
-                > SYSTEM READY. AWAITING TARGET.
+            <div class="panel-header"><span>SCAN_HISTORY</span><span>ARCHIVE</span></div>
+            <div id="history-list">
+                <div style="padding:20px; color:#444; text-align:center; font-size:0.8rem;">> NO SCANS FOUND</div>
             </div>
         </div>
     </div>
 
     <script>
-        /* --- 3D VISUAL (More Intense) --- */
+        /* --- 3D VISUAL --- */
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
         
-        // Complex Shield
         const geometry = new THREE.IcosahedronGeometry(2.8, 1);
         const material = new THREE.MeshBasicMaterial({ color: 0x00ff41, wireframe: true, transparent:true, opacity:0.2 });
         const shield = new THREE.Mesh(geometry, material);
@@ -203,7 +222,6 @@
         scene.add(core);
 
         camera.position.z = 8;
-
         let scanSpeed = 0.002;
 
         function animate() {
@@ -216,46 +234,94 @@
         }
         animate();
 
-        /* --- HOLLYWOOD AUDIT LOGIC --- */
+        /* --- LOGIC WITH CACHING --- */
+        
+        // 1. Load Data on Boot
+        document.addEventListener('DOMContentLoaded', () => {
+            loadHistoryUI();
+            const lastCA = localStorage.getItem('degen_last_ca');
+            if(lastCA) document.getElementById('ca-input').value = lastCA;
+        });
+
         async function runHollywoodAudit() {
             const ca = document.getElementById('ca-input').value.trim();
             if(!ca) return;
 
-            // 1. Reset UI & Start "Sequence"
+            // Save Input Cache
+            localStorage.setItem('degen_last_ca', ca);
+
+            // Reset UI
             document.getElementById('idle-msg').style.display = 'none';
             document.getElementById('audit-result').style.display = 'none';
             document.getElementById('scan-sequence').style.display = 'flex';
             resetScanSteps();
             
-            // Intensify 3D & Logs
-            scanSpeed = 0.02; // Speed up 3D
+            scanSpeed = 0.02;
             document.getElementById('canvas-container').style.opacity = 0.8;
-            addLog(`> INITIATING DEEP SCAN PROTOCOL: ${ca.slice(0,6)}...`, 'var(--neon-green)');
 
             try {
-                // 2. Real API Call (happens fast)
                 const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
                 const data = await res.json();
                 if(!data.pairs || data.pairs.length === 0) throw new Error("TOKEN DATA NOT FOUND");
                 const pair = data.pairs[0];
 
-                // 3. "Hollywood" Scan Delay (Theatrics)
                 await runScanTheatrics();
-
-                // 4. Calculate Score & Verdict
                 const results = calculateRisk(pair);
-
-                // 5. Dramatic Reveal
                 revealResults(results, pair);
+                
+                // Save to History
+                saveToHistory(ca, results.score, results.color);
 
             } catch(err) {
                 resetUIOnError();
-                addLog(`> SCAN FAILED: ${err.message}`, 'var(--neon-red)');
+                alert(`SCAN FAILED: ${err.message}`);
             }
         }
 
-        //--- HELPERS ---//
+        /* --- HISTORY FUNCTIONS --- */
+        function saveToHistory(ca, score, color) {
+            let history = JSON.parse(localStorage.getItem('degen_history') || '[]');
+            // Remove dupe if exists
+            history = history.filter(h => h.ca !== ca);
+            // Add to top
+            history.unshift({
+                ca: ca,
+                score: score,
+                color: color,
+                time: new Date().toLocaleTimeString()
+            });
+            // Keep last 10
+            if(history.length > 10) history.pop();
+            localStorage.setItem('degen_history', JSON.stringify(history));
+            loadHistoryUI();
+        }
 
+        function loadHistoryUI() {
+            const list = document.getElementById('history-list');
+            const history = JSON.parse(localStorage.getItem('degen_history') || '[]');
+            
+            if(history.length === 0) return;
+
+            list.innerHTML = '';
+            history.forEach(h => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `
+                    <div>
+                        <div class="hist-ca">${h.ca.slice(0,4)}...${h.ca.slice(-4)}</div>
+                        <span class="hist-time">${h.time}</span>
+                    </div>
+                    <div class="hist-score" style="color:${h.color}">${h.score}</div>
+                `;
+                div.onclick = () => {
+                    document.getElementById('ca-input').value = h.ca;
+                    runHollywoodAudit();
+                };
+                list.appendChild(div);
+            });
+        }
+
+        /* --- HELPERS --- */
         async function runScanTheatrics() {
              const steps = ['step1', 'step2', 'step3', 'step4', 'step5'];
              for(let i=0; i<steps.length; i++) {
@@ -263,8 +329,7 @@
                  step.classList.add('active');
                  if(i > 0) document.getElementById(steps[i-1]).classList.remove('active', 'done');
                  if(i > 0) document.getElementById(steps[i-1]).classList.add('done');
-                 addLog(step.innerText.replace('_',''));
-                 await new Promise(r => setTimeout(r, 800)); // Fake delay between steps
+                 await new Promise(r => setTimeout(r, 600)); 
              }
         }
 
@@ -276,9 +341,9 @@
             if(liq > 200000) score += 25; else if(liq < 10000) score -= 35;
             if(mcap > 1000000) score += 15; else if(mcap < 50000) score -= 10;
             const ratio = mcap / liq;
-            if(ratio > 20) score -= 20; // High MCAP, low liq = dangerous
+            if(ratio > 20) score -= 20;
             
-            score = Math.max(5, Math.min(99, score)); // Clamp 5-99
+            score = Math.max(5, Math.min(99, score));
             
             let verdict, color;
             if(score >= 85) { verdict = "MAX_BID // APE_SAFE"; color = "var(--neon-green)"; }
@@ -292,11 +357,9 @@
             document.getElementById('scan-sequence').style.display = 'none';
             document.getElementById('audit-result').style.display = 'flex';
             
-            // Reset 3D speed
             scanSpeed = 0.002;
             document.getElementById('canvas-container').style.opacity = 0.4;
 
-            // Update Colors & Text
             const circle = document.getElementById('score-circle');
             const scoreTxt = document.getElementById('score-text');
             const verdictTxt = document.getElementById('verdict-text');
@@ -308,27 +371,22 @@
             verdictTxt.style.color = results.color;
             verdictTxt.innerText = results.verdict;
 
-            // Update 3D Core Color
             core.material.color.setStyle(results.color);
             shield.material.color.setStyle(results.color);
 
-            // Alarm effect for bad score
             if(results.score < 50) mainPanel.classList.add('flash-red'); else mainPanel.classList.remove('flash-red');
 
-            // Fill Data
             document.getElementById('liq-val').innerText = "$" + pair.liquidity.usd.toLocaleString();
             document.getElementById('mcap-val').innerText = "$" + pair.fdv.toLocaleString();
             document.getElementById('price-change').innerText = pair.priceChange.h1 + "%";
             document.getElementById('vol-val').innerText = results.ratio.toFixed(1) + "x";
 
-            // Animate Score Count-up
             let currentScore = 0;
             const counter = setInterval(() => {
                 currentScore += 3;
                 if(currentScore >= results.score) {
                     currentScore = results.score;
                     clearInterval(counter);
-                    addLog(`> SCAN COMPLETE. FINAL SCORE: ${results.score}`, results.color);
                 }
                 scoreTxt.innerText = currentScore;
             }, 30);
@@ -342,12 +400,6 @@
             document.getElementById('scan-sequence').style.display = 'none';
             document.getElementById('idle-msg').style.display = 'flex';
             scanSpeed = 0.002;
-        }
-
-        function addLog(msg, color='#666') {
-            const logBox = document.getElementById('audit-log');
-            logBox.innerHTML += `<div style="margin-bottom:5px; color:${color}">${msg}</div>`;
-            logBox.scrollTop = logBox.scrollHeight;
         }
     </script>
 </body>
