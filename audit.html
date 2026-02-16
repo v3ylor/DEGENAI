@@ -12,7 +12,6 @@
             --warn: #fcee0a;
             --bg: #030303;
             --glass: rgba(10, 20, 10, 0.7);
-            --border: 1px solid rgba(0, 255, 65, 0.4);
             --font-mono: 'Courier New', monospace;
             --font-display: 'Arial Black', sans-serif;
         }
@@ -163,7 +162,16 @@
             align-items: center; 
             flex-direction: column;
             overflow: hidden;
+            transition: box-shadow 0.2s;
         }
+
+        /* FLASH RED ANIMATION FOR RUGS */
+        @keyframes flashDanger { 
+            0% { box-shadow: inset 0 0 0 var(--alert); } 
+            50% { box-shadow: inset 0 0 100px var(--alert); border-color: var(--alert); } 
+            100% { box-shadow: inset 0 0 0 var(--alert); } 
+        }
+        .rug-detected { animation: flashDanger 0.8s infinite; }
 
         /* IDLE STATE */
         #idle-state { text-align: center; opacity: 0.5; animation: pulse 3s infinite; }
@@ -288,7 +296,7 @@
             </div>
         </div>
 
-        <div class="tech-panel display-zone">
+        <div class="tech-panel display-zone" id="main-panel">
             <div class="scan-overlay" id="scan-overlay">
                 <div style="font-size:2rem; font-weight:900; color:#fff; letter-spacing:5px;">SCANNING</div>
                 <div class="scan-bar"><div class="scan-fill" id="scan-fill"></div></div>
@@ -349,6 +357,30 @@
     </div>
 
     <script>
+        /* --- AUDIO ENGINE (WEB AUDIO API) --- */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playRugWarning() {
+            // "Nuclear Siren" Sound Effect
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+
+            osc.type = 'sawtooth'; // Harsh buzz
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.5); // Drop pitch
+
+            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
+
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.5);
+        }
+
         /* --- 3D BACKGROUND --- */
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
@@ -398,6 +430,7 @@
             document.getElementById('idle-state').style.display = 'none';
             document.getElementById('result-state').style.display = 'none';
             document.getElementById('scan-overlay').style.display = 'flex';
+            document.getElementById('main-panel').classList.remove('rug-detected'); // Reset flash
             
             // Fake Loading Steps
             const steps = ["CONNECTING TO NODE...", "PARSING CONTRACT...", "CHECKING LP...", "CALCULATING RISK..."];
@@ -407,7 +440,7 @@
             for(let i=0; i<=100; i+=5) {
                 bar.style.width = i + "%";
                 if(i % 25 === 0) txt.innerText = steps[Math.floor(i/25)] || "FINALIZING...";
-                await new Promise(r => setTimeout(r, 40)); // 40ms * 20 steps = 0.8s scan time
+                await new Promise(r => setTimeout(r, 40)); 
             }
 
             try {
@@ -468,6 +501,7 @@
             const ring = document.getElementById('score-ring');
             const val = document.getElementById('score-val');
             const box = document.getElementById('verdict-box');
+            const panel = document.getElementById('main-panel');
             
             // Reset Gauge
             ring.style.strokeDashoffset = 630;
@@ -492,6 +526,16 @@
             box.style.color = res.color;
             box.style.boxShadow = `0 0 30px ${res.color}`;
             box.style.borderColor = res.color;
+
+            // --- ALARM TRIGGER ---
+            if(res.score <= 40) {
+                // Flash Screen
+                panel.classList.add('rug-detected');
+                // Play Alarm 3 times
+                playRugWarning();
+                setTimeout(playRugWarning, 800);
+                setTimeout(playRugWarning, 1600);
+            }
         }
 
         /* --- HISTORY LOGIC --- */
