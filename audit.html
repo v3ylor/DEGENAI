@@ -2,404 +2,526 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>DEGEN_AI // RUG_DETECTOR_PRO</title>
+    <title>DEGEN_AI // CONTRACT_AUDITOR_V9</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         :root {
-            --neon-green: #00ff41;
-            --neon-red: #ff003c;
-            --neon-yellow: #fcee0a;
-            --bg-color: #050505;
-            --panel-bg: rgba(0, 10, 0, 0.95);
-            --border: 1px solid rgba(0, 255, 65, 0.3);
-            --font: 'Courier New', monospace;
+            --primary: #00ff41;
+            --primary-dim: rgba(0, 255, 65, 0.1);
+            --alert: #ff003c;
+            --warn: #fcee0a;
+            --bg: #030303;
+            --glass: rgba(10, 20, 10, 0.7);
+            --border: 1px solid rgba(0, 255, 65, 0.4);
+            --font-mono: 'Courier New', monospace;
+            --font-display: 'Arial Black', sans-serif;
         }
+        
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: var(--bg-color); color: var(--neon-green); font-family: var(--font); overflow: hidden; height: 100vh; }
         
-        /* ATMOSPHERE */
-        #canvas-container { position: fixed; top: 0; left: 0; z-index: -1; opacity: 0.6; transition: opacity 0.5s; }
-        .scanlines { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.25) 50%); background-size: 100% 4px; pointer-events: none; z-index: 99; opacity: 0.3; }
-        .matrix-bg {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -2;
-            background-image: url('https://i.imgur.com/0f80760.png');
-            opacity: 0.1; animation: scrollDown 20s linear infinite;
+        body { 
+            background-color: var(--bg); 
+            color: var(--primary); 
+            font-family: var(--font-mono); 
+            height: 100vh; 
+            overflow: hidden;
+            background-image: 
+                radial-gradient(circle at 50% 50%, rgba(0, 50, 0, 0.2) 0%, rgba(0,0,0,1) 80%),
+                linear-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px);
+            background-size: 100% 100%, 40px 40px, 40px 40px;
         }
-        @keyframes scrollDown { from { background-position: 0 0; } to { background-position: 0 1000px; } }
 
-        .container {
+        /* --- 3D LAYER --- */
+        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.6; pointer-events: none; }
+        
+        /* --- LAYOUT GRID --- */
+        .main-grid {
             display: grid;
-            grid-template-columns: 350px 1fr 350px;
-            grid-template-rows: 70px 1fr;
+            grid-template-columns: 320px 1fr 300px;
+            grid-template-rows: 70px 1fr 30px;
+            gap: 20px;
+            padding: 20px;
             height: 100vh;
-            padding: 15px;
-            gap: 15px;
+            max-width: 1800px;
+            margin: 0 auto;
         }
 
-        header { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--neon-green); background: #000; padding: 0 20px; z-index: 10; }
-        .brand-container { display: flex; align-items: center; gap: 15px; }
-        .logo { height: 30px; width: auto; filter: drop-shadow(0 0 5px var(--neon-green)); }
-        .brand-text { font-size: 1.2rem; font-weight: 900; letter-spacing: 2px; color: #fff; text-shadow: 0 0 10px var(--neon-green); }
-        .nav-links a { color: #555; text-decoration: none; margin-left: 20px; font-weight: bold; font-size: 1.1rem; transition: 0.3s; }
-        .nav-links a:hover, .nav-links a.active { color: var(--neon-green); text-shadow: 0 0 10px var(--neon-green); }
-
-        .panel { background: var(--panel-bg); border: var(--border); position: relative; display: flex; flex-direction: column; overflow: hidden; backdrop-filter: blur(5px); transition: all 0.5s ease; }
-        .panel-header { background: rgba(0,255,65,0.1); padding: 8px; font-size: 0.75rem; border-bottom: var(--border); display: flex; justify-content: space-between; font-weight: bold; letter-spacing: 1px; }
-
-        /* INPUT AREA */
-        .search-box { padding: 20px; display: flex; flex-direction: column; gap: 15px; }
-        input { background: #000; border: 1px solid var(--neon-green); color: #fff; padding: 15px; font-family: inherit; font-size: 0.9rem; outline: none; text-align: center; transition: 0.3s; }
-        input:focus { box-shadow: 0 0 20px rgba(0,255,65,0.5); border-color: #fff; }
-        .btn { background: var(--neon-green); color: #000; padding: 15px; border: none; font-weight: bold; cursor: pointer; font-size: 1.1rem; transition: 0.3s; clip-path: polygon(5% 0, 100% 0, 95% 100%, 0% 100%); }
-        .btn:hover { background: #fff; box-shadow: 0 0 30px var(--neon-green); transform: scale(1.02); }
-
-        /* LOADING SEQUENCE */
-        #scan-sequence { display: none; flex-direction: column; justify-content: center; align-items: center; height: 100%; font-family: monospace; }
-        .scan-step { margin: 5px 0; opacity: 0; }
-        .scan-step.active { opacity: 1; color: var(--neon-yellow); }
-        .scan-step.done { opacity: 1; color: var(--neon-green); }
-        .blinking-cursor { animation: blink 0.5s infinite; }
-
-        /* AUDIT DISPLAY */
-        #audit-result { display: none; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; padding: 20px; animation: fadeIn 0.5s ease-out; }
-        .score-circle { 
-            width: 160px; height: 160px; 
-            border: 8px solid var(--neon-green); 
-            border-radius: 50%; 
-            display: flex; flex-direction: column;
-            justify-content: center; align-items: center;
-            margin: 20px 0;
-            box-shadow: 0 0 50px rgba(0,255,65,0.3), inset 0 0 20px rgba(0,255,65,0.3);
-            background: rgba(0,0,0,0.5);
-            transition: all 0.5s;
-        }
-        .score-val { font-size: 3.5rem; font-weight: 900; color: #fff; text-shadow: 0 0 10px currentColor; }
-        .score-label { font-size: 0.7rem; letter-spacing: 2px; margin-top: 5px; }
+        /* --- UI COMPONENTS --- */
         
-        .verdict { font-size: 2.2rem; font-weight: 900; margin-top: 10px; letter-spacing: 3px; text-transform: uppercase; text-shadow: 0 0 20px currentColor; }
-        .details-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; margin-top: 30px; }
-        .detail-box { border: 1px solid rgba(255,255,255,0.1); padding: 15px; text-align: left; background: rgba(0,0,0,0.3); }
-        .detail-label { font-size: 0.7rem; color: #888; letter-spacing: 1px; margin-bottom: 5px; }
-        .detail-val { font-size: 1.2rem; color: #fff; font-weight: bold; text-shadow: 0 0 5px var(--neon-green); }
-
-        /* HISTORY LIST */
-        #history-list { padding: 0; overflow-y: auto; height: 100%; }
-        .history-item { 
-            padding: 15px; 
-            border-bottom: 1px solid #222; 
-            cursor: pointer; 
-            transition: 0.2s; 
-            display: flex; 
-            justify-content: space-between; 
+        /* HEADER */
+        .top-bar {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
             align-items: center;
+            border-bottom: 2px solid var(--primary);
+            background: rgba(0,0,0,0.8);
+            padding: 0 30px;
+            clip-path: polygon(0 0, 100% 0, 100% 70%, 98% 100%, 0 100%);
+            box-shadow: 0 10px 30px rgba(0,255,65,0.1);
         }
-        .history-item:hover { background: rgba(0,255,65,0.1); border-left: 3px solid var(--neon-green); }
-        .hist-ca { font-size: 0.8rem; color: #aaa; font-family: monospace; }
-        .hist-score { font-weight: bold; font-size: 1rem; }
-        .hist-time { font-size: 0.6rem; color: #555; display: block; margin-top: 3px; }
+        
+        .brand { 
+            font-family: var(--font-display); 
+            font-size: 1.8rem; 
+            letter-spacing: -1px; 
+            text-shadow: 0 0 10px var(--primary);
+            display: flex; align-items: center; gap: 15px;
+        }
+        .logo-img { height: 40px; filter: drop-shadow(0 0 5px var(--primary)); }
+        
+        .nav a {
+            color: #666;
+            text-decoration: none;
+            margin-left: 30px;
+            font-weight: 900;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: 0.3s;
+            position: relative;
+        }
+        .nav a:hover, .nav a.active { color: var(--primary); text-shadow: 0 0 15px var(--primary); }
+        .nav a.active::after { content:''; position: absolute; bottom: -5px; left: 0; width: 100%; height: 2px; background: var(--primary); box-shadow: 0 0 10px var(--primary); }
+
+        /* TECH PANELS */
+        .tech-panel {
+            background: var(--glass);
+            border: 1px solid rgba(0,255,65,0.2);
+            backdrop-filter: blur(10px);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            /* Corner Cut Effect */
+            clip-path: polygon(
+                20px 0, 100% 0, 
+                100% calc(100% - 20px), calc(100% - 20px) 100%, 
+                0 100%, 0 20px
+            );
+        }
+        
+        /* Panel Decorations */
+        .tech-panel::before {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            opacity: 0.5;
+        }
+        .panel-title {
+            padding: 15px;
+            background: linear-gradient(90deg, rgba(0,255,65,0.1), transparent);
+            font-size: 0.8rem;
+            font-weight: 900;
+            letter-spacing: 2px;
+            color: #fff;
+            border-bottom: 1px solid rgba(0,255,65,0.2);
+            display: flex; justify-content: space-between;
+        }
+
+        /* --- INPUT SECTION (LEFT) --- */
+        .input-zone { padding: 25px; display: flex; flex-direction: column; gap: 20px; height: 100%; }
+        
+        .cyber-input {
+            background: rgba(0,0,0,0.6);
+            border: 1px solid #333;
+            color: #fff;
+            padding: 15px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            text-align: center;
+            transition: 0.3s;
+            outline: none;
+            width: 100%;
+        }
+        .cyber-input:focus { border-color: var(--primary); box-shadow: 0 0 15px var(--primary-dim); }
+
+        .scan-btn {
+            background: var(--primary);
+            color: #000;
+            border: none;
+            padding: 15px;
+            font-weight: 900;
+            font-size: 1.1rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+            transition: 0.2s;
+            position: relative; overflow: hidden;
+        }
+        .scan-btn:hover { background: #fff; box-shadow: 0 0 30px var(--primary); letter-spacing: 2px; }
+        .scan-btn:active { transform: scale(0.98); }
+
+        .status-list { font-size: 0.75rem; color: #888; line-height: 1.8; margin-top: auto; }
+        .status-list span { color: var(--primary); margin-right: 5px; }
+
+        /* --- MAIN DISPLAY (CENTER) --- */
+        .display-zone { 
+            position: relative; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* IDLE STATE */
+        #idle-state { text-align: center; opacity: 0.5; animation: pulse 3s infinite; }
+        #idle-state h2 { font-size: 3rem; margin-bottom: 10px; font-family: var(--font-display); }
+
+        /* RESULT STATE */
+        #result-state { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; padding: 20px; animation: slideUp 0.5s ease-out; }
+        
+        /* THE SCORE GAUGE */
+        .gauge-container {
+            position: relative;
+            width: 250px; height: 250px;
+            margin-bottom: 20px;
+            display: flex; justify-content: center; align-items: center;
+        }
+        .gauge-svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+        .gauge-bg { fill: none; stroke: #222; stroke-width: 10; }
+        .gauge-progress { 
+            fill: none; 
+            stroke: var(--primary); 
+            stroke-width: 10; 
+            stroke-dasharray: 630; 
+            stroke-dashoffset: 630; /* Starts empty */
+            transition: stroke-dashoffset 1.5s ease-out, stroke 0.3s;
+            filter: drop-shadow(0 0 10px var(--primary));
+        }
+        
+        .score-display { position: absolute; text-align: center; }
+        .big-score { font-size: 4.5rem; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 0 20px currentColor; font-family: var(--font-display); }
+        .score-label { font-size: 0.8rem; letter-spacing: 3px; color: #aaa; margin-top: 5px; }
+
+        .verdict-box {
+            font-size: 2rem; font-weight: 900; text-transform: uppercase;
+            padding: 10px 30px; border: 2px solid currentColor;
+            margin-bottom: 30px;
+            background: rgba(0,0,0,0.5);
+            letter-spacing: 2px;
+            box-shadow: 0 0 30px currentColor;
+        }
+
+        /* METRIC CARDS */
+        .metrics-grid { 
+            display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; 
+            padding: 0 20px;
+        }
+        .metric-card {
+            background: rgba(0,0,0,0.6);
+            border-left: 3px solid #444;
+            padding: 15px;
+            transition: 0.3s;
+        }
+        .metric-card:hover { border-left-color: var(--primary); background: rgba(0,255,65,0.05); }
+        .m-label { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+        .m-val { font-size: 1.4rem; color: #fff; font-weight: bold; margin-top: 5px; }
+
+        /* --- HISTORY (RIGHT) --- */
+        #history-feed { overflow-y: auto; height: 100%; padding: 0; }
+        .hist-item {
+            padding: 15px;
+            border-bottom: 1px solid #222;
+            cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center;
+            transition: 0.2s;
+        }
+        .hist-item:hover { background: rgba(255,255,255,0.05); padding-left: 20px; }
+        .h-addr { font-size: 0.8rem; color: #aaa; font-family: var(--font-mono); }
+        .h-score { font-weight: bold; }
+        
+        /* FOOTER */
+        .footer { grid-column: 1 / -1; display: flex; justify-content: space-between; font-size: 0.7rem; color: #444; align-items: center; text-transform: uppercase; border-top: 1px solid #222; padding-top: 10px; }
 
         /* ANIMATIONS */
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
-        .flash-red { animation: flashRed 1s infinite alternate; }
-        @keyframes flashRed { from { box-shadow: 0 0 20px var(--neon-red) inset; border-color: var(--neon-red); } to { box-shadow: 0 0 50px var(--neon-red) inset; border-color: #fff; } }
-
-        .corner { position: absolute; width: 10px; height: 10px; border-style: solid; border-color: var(--neon-green); pointer-events: none; }
-        .tl { top: 0; left: 0; border-width: 2px 0 0 2px; }
-        .br { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
+        @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.7; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* SCROLLBAR */
-        ::-webkit-scrollbar { width: 5px; }
-        ::-webkit-scrollbar-thumb { background: var(--neon-green); }
+        .scan-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,20,0,0.9); z-index: 10;
+            display: none;
+            flex-direction: column; justify-content: center; align-items: center;
+        }
+        .scan-bar { width: 300px; height: 4px; background: #333; margin-top: 20px; overflow: hidden; }
+        .scan-fill { width: 0%; height: 100%; background: var(--primary); box-shadow: 0 0 15px var(--primary); transition: width 0.1s; }
+        .console-text { font-family: monospace; color: var(--primary); margin-top: 10px; font-size: 0.9rem; }
+
     </style>
 </head>
 <body>
 
     <div id="canvas-container"></div>
-    <div class="scanlines"></div>
-    <div class="matrix-bg"></div>
 
-    <div class="container">
-        <header>
-            <div class="brand-container">
-                <img src="logo.png" alt="Logo" class="logo">
-                <span class="brand-text">DEGEN_AI</span>
+    <div class="main-grid">
+        <div class="top-bar">
+            <div class="brand">
+                <img src="logo.png" alt="" class="logo-img">
+                <span>DEGEN_OS <span style="font-size:0.8rem; color:var(--primary); vertical-align:top;">v9.0</span></span>
             </div>
-            <div class="nav-links">
-                <a href="index.html">COMMAND</a>
-                <a href="terminal.html">TERMINAL</a>
+            <div class="nav">
+                <a href="index.html">CMD</a>
+                <a href="terminal.html">TERM</a>
                 <a href="data.html">DATA</a>
-                <a href="audit.html" class="active" style="color:var(--neon-green)">AUDIT</a>
-            </div>
-        </header>
-
-        <div class="panel">
-            <div class="corner tl"></div><div class="corner br"></div>
-            <div class="panel-header"><span>TARGET_TOKEN</span><span>ENTER_CONTRACT</span></div>
-            <div class="search-box">
-                <div style="font-size:0.8rem; color:#aaa; letter-spacing: 1px;">PASTE CA (SOLANA):</div>
-                <input type="text" id="ca-input" placeholder="e.g. Dt7r...pump">
-                <button class="btn" onclick="runHollywoodAudit()">INITIATE DEEP SCAN</button>
-            </div>
-            <div style="padding:20px; font-size:0.8rem; color:#aaa; line-height:1.8; letter-spacing: 1px;">
-                <div style="color:var(--neon-green)">> ADVANCED AI ANALYSIS</div>
-                > CHECKING LIQUIDITY LOCKS<br>
-                > ANALYZING HOLDER DISTRIBUTION<br>
-                > CALCULATING RUG PROBABILITY
+                <a href="audit.html" class="active">AUDIT</a>
             </div>
         </div>
 
-        <div class="panel" id="main-panel">
-            <div class="panel-header"><span>AUDIT_RESULTS</span><span>AI_VERIFIED_V4</span></div>
-            
-            <div id="idle-msg" style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; color:#444; letter-spacing: 2px;">
-                <div style="font-size:3rem; margin-bottom:20px; opacity:0.3;">[WAITING]</div>
-                ENTER CONTRACT TO BEGIN SCAN
-            </div>
-
-            <div id="scan-sequence">
-                <div class="scan-step" id="step1">> INITIALIZING NEURAL NET...</div>
-                <div class="scan-step" id="step2">> QUERYING BLOCKCHAIN NODES...</div>
-                <div class="scan-step" id="step3">> ANALYZING LIQUIDITY POOL STRUCTURE...</div>
-                <div class="scan-step" id="step4">> CALCULATING HOLDER CONCENTRATION...</div>
-                <div class="scan-step" id="step5">> FINALIZING RISK ASSESSMENT... <span class="blinking-cursor">_</span></div>
-            </div>
-
-            <div id="audit-result">
-                <div class="score-circle" id="score-circle">
-                    <span class="score-val" id="score-text">0</span>
-                    <span class="score-label">DEGEN_TRUST_SCORE</span>
+        <div class="tech-panel">
+            <div class="panel-title"><span>TARGET_INPUT</span><span>// SECURE</span></div>
+            <div class="input-zone">
+                <div style="text-align:center; margin-bottom:10px;">
+                    <div style="font-size:0.7rem; color:#aaa; margin-bottom:5px;">ENTER CONTRACT ADDRESS (CA)</div>
+                    <input type="text" id="ca-input" class="cyber-input" placeholder="e.g. 7A1R...pump">
                 </div>
                 
-                <div class="verdict" id="verdict-text">---</div>
+                <button class="scan-btn" onclick="startScan()">INITIATE SCAN</button>
                 
-                <div class="details-grid">
-                    <div class="detail-box">
-                        <div class="detail-label">LIQUIDITY (USD)</div>
-                        <div class="detail-val" id="liq-val">---</div>
-                    </div>
-                    <div class="detail-box">
-                        <div class="detail-label">FDV (FULLY DILUTED)</div>
-                        <div class="detail-val" id="mcap-val">---</div>
-                    </div>
-                    <div class="detail-box">
-                        <div class="detail-label">1H PRICE IMPACT</div>
-                        <div class="detail-val" id="price-change">---</div>
-                    </div>
-                    <div class="detail-box">
-                        <div class="detail-label">LIQUIDITY RATIO</div>
-                        <div class="detail-val" id="vol-val">---</div>
-                    </div>
+                <div class="status-list">
+                    <div><span>></span> DEXSCREENER API: <b style="color:#fff">ONLINE</b></div>
+                    <div><span>></span> LIQUIDITY CHECK: <b style="color:#fff">READY</b></div>
+                    <div><span>></span> RUG HEURISTICS: <b style="color:#fff">ACTIVE</b></div>
+                    <div><span>></span> DATABASE: <b style="color:#fff">SYNCED</b></div>
                 </div>
             </div>
         </div>
 
-        <div class="panel">
-            <div class="corner tl"></div><div class="corner br"></div>
-            <div class="panel-header"><span>SCAN_HISTORY</span><span>ARCHIVE</span></div>
-            <div id="history-list">
-                <div style="padding:20px; color:#444; text-align:center; font-size:0.8rem;">> NO SCANS FOUND</div>
+        <div class="tech-panel display-zone">
+            <div class="scan-overlay" id="scan-overlay">
+                <div style="font-size:2rem; font-weight:900; color:#fff; letter-spacing:5px;">SCANNING</div>
+                <div class="scan-bar"><div class="scan-fill" id="scan-fill"></div></div>
+                <div class="console-text" id="console-text">INITIALIZING...</div>
             </div>
+
+            <div id="idle-state">
+                <h2>WAITING<br>FOR TARGET</h2>
+                <div style="color:var(--primary); font-size:0.9rem; letter-spacing:2px;">// SYSTEM IDLE</div>
+            </div>
+
+            <div id="result-state">
+                <div class="gauge-container">
+                    <svg class="gauge-svg" viewBox="0 0 220 220">
+                        <circle class="gauge-bg" cx="110" cy="110" r="100"></circle>
+                        <circle class="gauge-progress" id="score-ring" cx="110" cy="110" r="100"></circle>
+                    </svg>
+                    <div class="score-display">
+                        <div class="big-score" id="score-val">0</div>
+                        <div class="score-label">TRUST SCORE</div>
+                    </div>
+                </div>
+
+                <div class="verdict-box" id="verdict-box" style="color:var(--primary)">SAFE</div>
+
+                <div class="metrics-grid">
+                    <div class="metric-card">
+                        <div class="m-label">LIQUIDITY (USD)</div>
+                        <div class="m-val" id="val-liq">---</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="m-label">MARKET CAP (FDV)</div>
+                        <div class="m-val" id="val-mcap">---</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="m-label">VOLATILITY (1H)</div>
+                        <div class="m-val" id="val-vol">---</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="m-label">MCAP / LIQ RATIO</div>
+                        <div class="m-val" id="val-ratio">---</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tech-panel">
+            <div class="panel-title"><span>SCAN_ARCHIVE</span><span>// LOGS</span></div>
+            <div id="history-feed">
+                </div>
+        </div>
+
+        <div class="footer">
+            <div>SYSTEM STATUS: NORMAL</div>
+            <div>LOCATION: TOKYO_SERVER_04</div>
+            <div>SECURE CONNECTION</div>
         </div>
     </div>
 
     <script>
-        /* --- 3D VISUAL --- */
+        /* --- 3D BACKGROUND --- */
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
         const renderer = new THREE.WebGLRenderer({ alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
         
-        const geometry = new THREE.IcosahedronGeometry(2.8, 1);
-        const material = new THREE.MeshBasicMaterial({ color: 0x00ff41, wireframe: true, transparent:true, opacity:0.2 });
-        const shield = new THREE.Mesh(geometry, material);
-        scene.add(shield);
+        // Wireframe Globe
+        const geometry = new THREE.IcosahedronGeometry(12, 2);
+        const material = new THREE.MeshBasicMaterial({ color: 0x004400, wireframe: true, transparent: true, opacity: 0.3 });
+        const sphere = new THREE.Mesh(geometry, material);
+        scene.add(sphere);
         
-        const coreGeo = new THREE.OctahedronGeometry(1.5, 2);
-        const coreMat = new THREE.MeshBasicMaterial({ color: 0x00ff41, wireframe: true });
-        const core = new THREE.Mesh(coreGeo, coreMat);
-        scene.add(core);
+        // Floating Particles
+        const partGeo = new THREE.BufferGeometry();
+        const partCount = 500;
+        const posArray = new Float32Array(partCount * 3);
+        for(let i=0; i<partCount*3; i++) posArray[i] = (Math.random() - 0.5) * 50;
+        partGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+        const partMat = new THREE.PointsMaterial({ size: 0.1, color: 0x00ff41 });
+        const particles = new THREE.Points(partGeo, partMat);
+        scene.add(particles);
 
-        camera.position.z = 8;
-        let scanSpeed = 0.002;
-
+        camera.position.z = 20;
         function animate() {
             requestAnimationFrame(animate);
-            shield.rotation.y += scanSpeed;
-            shield.rotation.z -= scanSpeed/2;
-            core.rotation.x -= scanSpeed*2;
-            core.rotation.y += scanSpeed*2;
+            sphere.rotation.y += 0.001;
+            sphere.rotation.x -= 0.0005;
+            particles.rotation.y -= 0.0005;
             renderer.render(scene, camera);
         }
         animate();
 
-        /* --- LOGIC WITH CACHING --- */
-        
-        // 1. Load Data on Boot
+        /* --- APP LOGIC --- */
         document.addEventListener('DOMContentLoaded', () => {
-            loadHistoryUI();
-            const lastCA = localStorage.getItem('degen_last_ca');
-            if(lastCA) document.getElementById('ca-input').value = lastCA;
+            loadHistory();
+            const last = localStorage.getItem('last_audit_ca');
+            if(last) document.getElementById('ca-input').value = last;
         });
 
-        async function runHollywoodAudit() {
+        async function startScan() {
             const ca = document.getElementById('ca-input').value.trim();
             if(!ca) return;
+            localStorage.setItem('last_audit_ca', ca);
 
-            // Save Input Cache
-            localStorage.setItem('degen_last_ca', ca);
-
-            // Reset UI
-            document.getElementById('idle-msg').style.display = 'none';
-            document.getElementById('audit-result').style.display = 'none';
-            document.getElementById('scan-sequence').style.display = 'flex';
-            resetScanSteps();
+            // 1. UI Reset & Animation Start
+            document.getElementById('idle-state').style.display = 'none';
+            document.getElementById('result-state').style.display = 'none';
+            document.getElementById('scan-overlay').style.display = 'flex';
             
-            scanSpeed = 0.02;
-            document.getElementById('canvas-container').style.opacity = 0.8;
+            // Fake Loading Steps
+            const steps = ["CONNECTING TO NODE...", "PARSING CONTRACT...", "CHECKING LP...", "CALCULATING RISK..."];
+            const bar = document.getElementById('scan-fill');
+            const txt = document.getElementById('console-text');
+
+            for(let i=0; i<=100; i+=5) {
+                bar.style.width = i + "%";
+                if(i % 25 === 0) txt.innerText = steps[Math.floor(i/25)] || "FINALIZING...";
+                await new Promise(r => setTimeout(r, 40)); // 40ms * 20 steps = 0.8s scan time
+            }
 
             try {
+                // 2. Real API Fetch
                 const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
                 const data = await res.json();
-                if(!data.pairs || data.pairs.length === 0) throw new Error("TOKEN DATA NOT FOUND");
-                const pair = data.pairs[0];
-
-                await runScanTheatrics();
-                const results = calculateRisk(pair);
-                revealResults(results, pair);
                 
-                // Save to History
-                saveToHistory(ca, results.score, results.color);
-
-            } catch(err) {
-                resetUIOnError();
-                alert(`SCAN FAILED: ${err.message}`);
+                if(!data.pairs || data.pairs.length === 0) throw new Error("TOKEN NOT FOUND");
+                
+                const pair = data.pairs[0];
+                const result = calculateScore(pair);
+                
+                showResult(pair, result);
+                addToHistory(ca, result);
+                
+            } catch(e) {
+                alert("SCAN ERROR: " + e.message);
+                document.getElementById('scan-overlay').style.display = 'none';
+                document.getElementById('idle-state').style.display = 'block';
             }
         }
 
-        /* --- HISTORY FUNCTIONS --- */
-        function saveToHistory(ca, score, color) {
-            let history = JSON.parse(localStorage.getItem('degen_history') || '[]');
-            // Remove dupe if exists
-            history = history.filter(h => h.ca !== ca);
-            // Add to top
-            history.unshift({
-                ca: ca,
-                score: score,
-                color: color,
-                time: new Date().toLocaleTimeString()
-            });
-            // Keep last 10
-            if(history.length > 10) history.pop();
-            localStorage.setItem('degen_history', JSON.stringify(history));
-            loadHistoryUI();
-        }
+        function calculateScore(pair) {
+            let liq = pair.liquidity?.usd || 0;
+            let fdv = pair.fdv || 0;
+            let score = 50; // Base
 
-        function loadHistoryUI() {
-            const list = document.getElementById('history-list');
-            const history = JSON.parse(localStorage.getItem('degen_history') || '[]');
+            // Logic
+            if(liq > 100000) score += 20; else if(liq < 5000) score -= 40;
+            if(fdv > 500000) score += 10;
             
-            if(history.length === 0) return;
-
-            list.innerHTML = '';
-            history.forEach(h => {
-                const div = document.createElement('div');
-                div.className = 'history-item';
-                div.innerHTML = `
-                    <div>
-                        <div class="hist-ca">${h.ca.slice(0,4)}...${h.ca.slice(-4)}</div>
-                        <span class="hist-time">${h.time}</span>
-                    </div>
-                    <div class="hist-score" style="color:${h.color}">${h.score}</div>
-                `;
-                div.onclick = () => {
-                    document.getElementById('ca-input').value = h.ca;
-                    runHollywoodAudit();
-                };
-                list.appendChild(div);
-            });
-        }
-
-        /* --- HELPERS --- */
-        async function runScanTheatrics() {
-             const steps = ['step1', 'step2', 'step3', 'step4', 'step5'];
-             for(let i=0; i<steps.length; i++) {
-                 const step = document.getElementById(steps[i]);
-                 step.classList.add('active');
-                 if(i > 0) document.getElementById(steps[i-1]).classList.remove('active', 'done');
-                 if(i > 0) document.getElementById(steps[i-1]).classList.add('done');
-                 await new Promise(r => setTimeout(r, 600)); 
-             }
-        }
-
-        function calculateRisk(pair) {
-            const liq = pair.liquidity.usd;
-            const mcap = pair.fdv;
-            let score = 50;
-            
-            if(liq > 200000) score += 25; else if(liq < 10000) score -= 35;
-            if(mcap > 1000000) score += 15; else if(mcap < 50000) score -= 10;
-            const ratio = mcap / liq;
-            if(ratio > 20) score -= 20;
+            let ratio = fdv / (liq || 1);
+            if(ratio > 30) score -= 30; // Overvalued / Trap
             
             score = Math.max(5, Math.min(99, score));
             
-            let verdict, color;
-            if(score >= 85) { verdict = "MAX_BID // APE_SAFE"; color = "var(--neon-green)"; }
-            else if(score >= 50) { verdict = "VOLATILE // CAUTION"; color = "var(--neon-yellow)"; }
-            else { verdict = "RUG IMMINENT // EVACUATE"; color = "var(--neon-red)"; }
+            // Verdict
+            let verdict = "NEUTRAL";
+            let color = "#fcee0a"; // Yellow
+            
+            if(score >= 80) { verdict = "APE SAFE"; color = "#00ff41"; }
+            else if(score <= 40) { verdict = "RUG RISK"; color = "#ff003c"; }
             
             return { score, verdict, color, ratio };
         }
 
-        function revealResults(results, pair) {
-            document.getElementById('scan-sequence').style.display = 'none';
-            document.getElementById('audit-result').style.display = 'flex';
+        function showResult(pair, res) {
+            document.getElementById('scan-overlay').style.display = 'none';
+            document.getElementById('result-state').style.display = 'flex';
+
+            // Numbers
+            document.getElementById('val-liq').innerText = "$" + pair.liquidity.usd.toLocaleString();
+            document.getElementById('val-mcap').innerText = "$" + pair.fdv.toLocaleString();
+            document.getElementById('val-vol').innerText = pair.priceChange.h1 + "%";
+            document.getElementById('val-ratio').innerText = res.ratio.toFixed(1);
+
+            // Gauge Animation
+            const ring = document.getElementById('score-ring');
+            const val = document.getElementById('score-val');
+            const box = document.getElementById('verdict-box');
             
-            scanSpeed = 0.002;
-            document.getElementById('canvas-container').style.opacity = 0.4;
+            // Reset Gauge
+            ring.style.strokeDashoffset = 630;
+            
+            // Animate
+            setTimeout(() => {
+                const offset = 630 - (630 * (res.score / 100));
+                ring.style.strokeDashoffset = offset;
+                ring.style.stroke = res.color;
+            }, 100);
 
-            const circle = document.getElementById('score-circle');
-            const scoreTxt = document.getElementById('score-text');
-            const verdictTxt = document.getElementById('verdict-text');
-            const mainPanel = document.getElementById('main-panel');
+            // Count Up
+            let c = 0;
+            const int = setInterval(() => {
+                c+=2;
+                if(c >= res.score) { c = res.score; clearInterval(int); }
+                val.innerText = c;
+            }, 20);
 
-            circle.style.borderColor = results.color;
-            circle.style.boxShadow = `0 0 50px ${results.color}, inset 0 0 20px ${results.color}`;
-            scoreTxt.style.color = results.color;
-            verdictTxt.style.color = results.color;
-            verdictTxt.innerText = results.verdict;
-
-            core.material.color.setStyle(results.color);
-            shield.material.color.setStyle(results.color);
-
-            if(results.score < 50) mainPanel.classList.add('flash-red'); else mainPanel.classList.remove('flash-red');
-
-            document.getElementById('liq-val').innerText = "$" + pair.liquidity.usd.toLocaleString();
-            document.getElementById('mcap-val').innerText = "$" + pair.fdv.toLocaleString();
-            document.getElementById('price-change').innerText = pair.priceChange.h1 + "%";
-            document.getElementById('vol-val').innerText = results.ratio.toFixed(1) + "x";
-
-            let currentScore = 0;
-            const counter = setInterval(() => {
-                currentScore += 3;
-                if(currentScore >= results.score) {
-                    currentScore = results.score;
-                    clearInterval(counter);
-                }
-                scoreTxt.innerText = currentScore;
-            }, 30);
+            // Verdict
+            box.innerText = res.verdict;
+            box.style.color = res.color;
+            box.style.boxShadow = `0 0 30px ${res.color}`;
+            box.style.borderColor = res.color;
         }
 
-        function resetScanSteps() {
-            document.querySelectorAll('.scan-step').forEach(el => el.classList.remove('active', 'done'));
+        /* --- HISTORY LOGIC --- */
+        function addToHistory(ca, res) {
+            let hist = JSON.parse(localStorage.getItem('audit_history') || '[]');
+            hist = hist.filter(h => h.ca !== ca); // Remove dupes
+            hist.unshift({ ca, score: res.score, color: res.color });
+            if(hist.length > 15) hist.pop();
+            localStorage.setItem('audit_history', JSON.stringify(hist));
+            loadHistory();
         }
 
-        function resetUIOnError() {
-            document.getElementById('scan-sequence').style.display = 'none';
-            document.getElementById('idle-msg').style.display = 'flex';
-            scanSpeed = 0.002;
+        function loadHistory() {
+            const list = document.getElementById('history-feed');
+            const hist = JSON.parse(localStorage.getItem('audit_history') || '[]');
+            list.innerHTML = "";
+            
+            hist.forEach(h => {
+                const div = document.createElement('div');
+                div.className = 'hist-item';
+                div.innerHTML = `
+                    <span class="h-addr">${h.ca.slice(0,4)}...${h.ca.slice(-4)}</span>
+                    <span class="h-score" style="color:${h.color}">${h.score}</span>
+                `;
+                div.onclick = () => {
+                    document.getElementById('ca-input').value = h.ca;
+                    startScan();
+                };
+                list.appendChild(div);
+            });
         }
     </script>
 </body>
