@@ -79,11 +79,12 @@
 
         /* GMGN HUD GRID */
         .hud-panel {
-            position: absolute; background: rgba(5,5,5,0.9);
+            position: absolute; background: rgba(5,5,5,0.95); /* Darker background for readability */
             border: 1px solid #333; backdrop-filter: blur(10px);
             padding: 15px; width: 220px;
             pointer-events: auto; opacity: 0; transition: 0.5s;
             clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+            box-shadow: 0 0 15px rgba(0,0,0,0.5);
         }
         
         .hud-title { font-size: 0.7rem; color: #888; letter-spacing: 2px; margin-bottom: 5px; font-family: 'Share Tech Mono'; }
@@ -96,26 +97,41 @@
         #hud-burn { top: 30%; right: 5%; text-align: right; border-right: 2px solid var(--neon-green); }
         #hud-top10 { top: 50%; right: 5%; text-align: right; border-right: 2px solid var(--neon-green); }
 
-        /* NEW: TARGET DISPLAY (CENTER TOP) */
+        /* TARGET DISPLAY (CENTER TOP) */
         #hud-target {
             top: 15%; left: 50%; transform: translateX(-50%);
             width: auto; min-width: 300px; text-align: center;
             border: 1px solid var(--neon-green);
-            background: rgba(0, 20, 0, 0.8);
+            background: rgba(0, 20, 0, 0.9);
         }
         .target-symbol { font-size: 1.5rem; font-weight: 900; letter-spacing: 3px; color: var(--neon-green); }
         .target-ca { font-family: 'Share Tech Mono'; font-size: 0.8rem; color: #aaa; margin-top: 5px; cursor: pointer; transition: 0.3s; }
         .target-ca:hover { color: #fff; text-decoration: underline; }
 
-        /* CENTER VERDICT */
-        #hud-verdict { bottom: 25%; left: 50%; transform: translateX(-50%); text-align: center; width: auto; background: transparent; border: none; }
-        #verdict-text { font-size: 3.5rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; text-shadow: 0 0 30px currentColor; }
-        #score-sub { font-family: 'Share Tech Mono'; font-size: 1rem; margin-top: 10px; letter-spacing: 3px; }
+        /* CENTER VERDICT - FIXED VISIBILITY */
+        #hud-verdict { 
+            bottom: 25%; left: 50%; transform: translateX(-50%); 
+            text-align: center; width: auto; 
+            background: rgba(0, 0, 0, 0.85); /* Solid dark background */
+            border: 1px solid #333;
+            padding: 20px 40px;
+            backdrop-filter: blur(10px);
+            z-index: 25;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+        
+        #verdict-text { 
+            font-size: 3.5rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; 
+            /* Hard black shadow to ensure readability against any color */
+            text-shadow: 3px 3px 0px #000, 0 0 20px currentColor; 
+        }
+        
+        #score-sub { font-family: 'Share Tech Mono'; font-size: 1rem; margin-top: 10px; letter-spacing: 3px; color: #fff; }
 
         /* RESET BUTTON */
         #reset-btn {
             position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.8); border: 1px solid #fff; color: #fff;
+            background: rgba(0,0,0,0.9); border: 1px solid #fff; color: #fff;
             padding: 12px 40px; font-family: 'Share Tech Mono'; cursor: pointer;
             pointer-events: auto; opacity: 0; transition: 0.3s;
             z-index: 30; letter-spacing: 2px; backdrop-filter: blur(5px);
