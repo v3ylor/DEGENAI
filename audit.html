@@ -98,22 +98,27 @@
         .hud-title { font-size: 0.7rem; color: #888; letter-spacing: 2px; margin-bottom: 5px; font-family: 'Share Tech Mono'; }
         .hud-val { font-size: 1.8rem; font-weight: 700; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
 
+        /* POSITIONS */
         #hud-score { top: 20%; right: 10%; text-align: right; border-left: none; border-right: 2px solid var(--neon-green); }
         #hud-liq { top: 40%; left: 10%; }
         #hud-mcap { bottom: 30%; right: 10%; text-align: right; border-left: none; border-right: 2px solid var(--neon-green); }
-        #hud-verdict { bottom: 10%; left: 50%; transform: translateX(-50%); width: auto; text-align: center; border: none; background: transparent; }
+        
+        /* FIX: Moved Verdict UP so button fits below it */
+        #hud-verdict { bottom: 25%; left: 50%; transform: translateX(-50%); width: auto; text-align: center; border: none; background: transparent; }
         
         #verdict-text { font-size: 4rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; text-shadow: 0 0 30px currentColor; }
 
-        /* RESET BUTTON */
+        /* FIX: Moved Button DOWN and added background */
         #reset-btn {
-            position: absolute; bottom: 20%; left: 50%; transform: translateX(-50%);
-            background: transparent; border: 1px solid #fff; color: #fff;
-            padding: 10px 30px; font-family: 'Share Tech Mono'; cursor: pointer;
+            position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); 
+            border: 1px solid #fff; color: #fff;
+            padding: 12px 40px; font-family: 'Share Tech Mono'; cursor: pointer;
             pointer-events: auto; opacity: 0; transition: 0.3s;
-            z-index: 30;
+            z-index: 30; letter-spacing: 2px;
+            backdrop-filter: blur(5px);
         }
-        #reset-btn:hover { background: #fff; color: #000; box-shadow: 0 0 15px #fff; }
+        #reset-btn:hover { background: #fff; color: #000; box-shadow: 0 0 20px #fff; }
 
         /* HISTORY SIDEBAR */
         #history-toggle {
