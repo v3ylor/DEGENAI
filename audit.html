@@ -2,570 +2,423 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>DEGEN_AI // CONTRACT_AUDITOR_V9</title>
+    <title>DEGEN_AI // SYMBIOTE_AUDIT</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;700&family=Share+Tech+Mono&display=swap');
+
         :root {
-            --primary: #00ff41;
-            --primary-dim: rgba(0, 255, 65, 0.1);
-            --alert: #ff003c;
-            --warn: #fcee0a;
-            --bg: #030303;
-            --glass: rgba(10, 20, 10, 0.7);
-            --font-mono: 'Courier New', monospace;
-            --font-display: 'Arial Black', sans-serif;
+            --neon-green: #00ff41;
+            --neon-red: #ff003c;
+            --neon-yellow: #fcee0a;
+            --bg: #000000;
         }
-        
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body { 
-            background-color: var(--bg); 
-            color: var(--primary); 
-            font-family: var(--font-mono); 
-            height: 100vh; 
-            overflow: hidden;
-            background-image: 
-                radial-gradient(circle at 50% 50%, rgba(0, 50, 0, 0.2) 0%, rgba(0,0,0,1) 80%),
-                linear-gradient(rgba(0, 255, 65, 0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(0, 255, 65, 0.03) 1px, transparent 1px);
-            background-size: 100% 100%, 40px 40px, 40px 40px;
-        }
-
-        /* --- 3D LAYER --- */
-        #canvas-container { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; opacity: 0.6; pointer-events: none; }
-        
-        /* --- LAYOUT GRID --- */
-        .main-grid {
-            display: grid;
-            grid-template-columns: 320px 1fr 300px;
-            grid-template-rows: 70px 1fr 30px;
-            gap: 20px;
-            padding: 20px;
+            background: var(--bg); 
+            color: #fff; 
+            font-family: 'Rajdhani', sans-serif; 
+            overflow: hidden; 
             height: 100vh;
-            max-width: 1800px;
-            margin: 0 auto;
+            width: 100vw;
         }
 
-        /* --- UI COMPONENTS --- */
-        
+        /* --- 3D CANVAS --- */
+        #webgl {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+        }
+
+        /* --- UI LAYER (ON TOP) --- */
+        #ui-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 10; pointer-events: none;
+            display: flex; flex-direction: column; justify-content: space-between;
+        }
+
         /* HEADER */
-        .top-bar {
-            grid-column: 1 / -1;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid var(--primary);
-            background: rgba(0,0,0,0.8);
-            padding: 0 30px;
-            clip-path: polygon(0 0, 100% 0, 100% 70%, 98% 100%, 0 100%);
-            box-shadow: 0 10px 30px rgba(0,255,65,0.1);
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 30px 50px;
+            pointer-events: auto;
         }
-        
-        .brand { 
-            font-family: var(--font-display); 
-            font-size: 1.8rem; 
-            letter-spacing: -1px; 
-            text-shadow: 0 0 10px var(--primary);
-            display: flex; align-items: center; gap: 15px;
-        }
-        .logo-img { height: 40px; filter: drop-shadow(0 0 5px var(--primary)); }
-        
-        .nav a {
-            color: #666;
-            text-decoration: none;
-            margin-left: 30px;
-            font-weight: 900;
-            font-size: 1rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: 0.3s;
-            position: relative;
-        }
-        .nav a:hover, .nav a.active { color: var(--primary); text-shadow: 0 0 15px var(--primary); }
-        .nav a.active::after { content:''; position: absolute; bottom: -5px; left: 0; width: 100%; height: 2px; background: var(--primary); box-shadow: 0 0 10px var(--primary); }
+        .brand { font-family: 'Share Tech Mono', monospace; font-size: 1.5rem; letter-spacing: 2px; color: var(--neon-green); }
+        .nav a { color: #666; text-decoration: none; margin-left: 30px; font-weight: bold; font-size: 1rem; transition: 0.3s; }
+        .nav a:hover, .nav a.active { color: #fff; text-shadow: 0 0 10px #fff; }
 
-        /* TECH PANELS */
-        .tech-panel {
-            background: var(--glass);
-            border: 1px solid rgba(0,255,65,0.2);
-            backdrop-filter: blur(10px);
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 0 0 20px rgba(0,0,0,0.5);
-            /* Corner Cut Effect */
-            clip-path: polygon(
-                20px 0, 100% 0, 
-                100% calc(100% - 20px), calc(100% - 20px) 100%, 
-                0 100%, 0 20px
-            );
-        }
-        
-        /* Panel Decorations */
-        .tech-panel::before {
-            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px;
-            background: linear-gradient(90deg, transparent, var(--primary), transparent);
-            opacity: 0.5;
-        }
-        .panel-title {
-            padding: 15px;
-            background: linear-gradient(90deg, rgba(0,255,65,0.1), transparent);
-            font-size: 0.8rem;
-            font-weight: 900;
-            letter-spacing: 2px;
-            color: #fff;
-            border-bottom: 1px solid rgba(0,255,65,0.2);
-            display: flex; justify-content: space-between;
-        }
-
-        /* --- INPUT SECTION (LEFT) --- */
-        .input-zone { padding: 25px; display: flex; flex-direction: column; gap: 20px; height: 100%; }
-        
-        .cyber-input {
-            background: rgba(0,0,0,0.6);
-            border: 1px solid #333;
-            color: #fff;
-            padding: 15px;
-            font-family: var(--font-mono);
-            font-size: 0.9rem;
+        /* CENTER INTERACTION ZONE */
+        .center-stage {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 100%; max-width: 600px;
             text-align: center;
-            transition: 0.3s;
-            outline: none;
-            width: 100%;
+            pointer-events: auto;
+            z-index: 20;
         }
-        .cyber-input:focus { border-color: var(--primary); box-shadow: 0 0 15px var(--primary-dim); }
+
+        /* INPUT FIELD (GLOWING BAR) */
+        .input-wrapper {
+            position: relative;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid rgba(255,255,255,0.2);
+            backdrop-filter: blur(10px);
+            padding: 5px;
+            border-radius: 50px;
+            display: flex;
+            align-items: center;
+            transition: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: scale(0.9);
+            opacity: 0;
+            animation: floatUp 1s 0.5s forwards ease-out;
+        }
+        .input-wrapper:focus-within {
+            border-color: var(--neon-green);
+            box-shadow: 0 0 30px rgba(0,255,65,0.2);
+            transform: scale(1);
+        }
+
+        input {
+            background: transparent; border: none; color: #fff;
+            font-family: 'Share Tech Mono'; font-size: 1.2rem;
+            width: 100%; padding: 15px 25px; outline: none;
+            text-transform: uppercase;
+        }
 
         .scan-btn {
-            background: var(--primary);
-            color: #000;
-            border: none;
-            padding: 15px;
-            font-weight: 900;
-            font-size: 1.1rem;
-            cursor: pointer;
-            text-transform: uppercase;
-            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
-            transition: 0.2s;
-            position: relative; overflow: hidden;
-        }
-        .scan-btn:hover { background: #fff; box-shadow: 0 0 30px var(--primary); letter-spacing: 2px; }
-        .scan-btn:active { transform: scale(0.98); }
-
-        .status-list { font-size: 0.75rem; color: #888; line-height: 1.8; margin-top: auto; }
-        .status-list span { color: var(--primary); margin-right: 5px; }
-
-        /* --- MAIN DISPLAY (CENTER) --- */
-        .display-zone { 
-            position: relative; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            flex-direction: column;
-            overflow: hidden;
-            transition: box-shadow 0.2s;
-        }
-
-        /* FLASH RED ANIMATION FOR RUGS */
-        @keyframes flashDanger { 
-            0% { box-shadow: inset 0 0 0 var(--alert); } 
-            50% { box-shadow: inset 0 0 100px var(--alert); border-color: var(--alert); } 
-            100% { box-shadow: inset 0 0 0 var(--alert); } 
-        }
-        .rug-detected { animation: flashDanger 0.8s infinite; }
-
-        /* IDLE STATE */
-        #idle-state { text-align: center; opacity: 0.5; animation: pulse 3s infinite; }
-        #idle-state h2 { font-size: 3rem; margin-bottom: 10px; font-family: var(--font-display); }
-
-        /* RESULT STATE */
-        #result-state { display: none; width: 100%; height: 100%; flex-direction: column; align-items: center; padding: 20px; animation: slideUp 0.5s ease-out; }
-        
-        /* THE SCORE GAUGE */
-        .gauge-container {
-            position: relative;
-            width: 250px; height: 250px;
-            margin-bottom: 20px;
-            display: flex; justify-content: center; align-items: center;
-        }
-        .gauge-svg { transform: rotate(-90deg); width: 100%; height: 100%; }
-        .gauge-bg { fill: none; stroke: #222; stroke-width: 10; }
-        .gauge-progress { 
-            fill: none; 
-            stroke: var(--primary); 
-            stroke-width: 10; 
-            stroke-dasharray: 630; 
-            stroke-dashoffset: 630; /* Starts empty */
-            transition: stroke-dashoffset 1.5s ease-out, stroke 0.3s;
-            filter: drop-shadow(0 0 10px var(--primary));
-        }
-        
-        .score-display { position: absolute; text-align: center; }
-        .big-score { font-size: 4.5rem; font-weight: 900; color: #fff; line-height: 1; text-shadow: 0 0 20px currentColor; font-family: var(--font-display); }
-        .score-label { font-size: 0.8rem; letter-spacing: 3px; color: #aaa; margin-top: 5px; }
-
-        .verdict-box {
-            font-size: 2rem; font-weight: 900; text-transform: uppercase;
-            padding: 10px 30px; border: 2px solid currentColor;
-            margin-bottom: 30px;
-            background: rgba(0,0,0,0.5);
-            letter-spacing: 2px;
-            box-shadow: 0 0 30px currentColor;
-        }
-
-        /* METRIC CARDS */
-        .metrics-grid { 
-            display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; 
-            padding: 0 20px;
-        }
-        .metric-card {
-            background: rgba(0,0,0,0.6);
-            border-left: 3px solid #444;
-            padding: 15px;
+            background: #fff; color: #000; border: none;
+            padding: 12px 30px; border-radius: 40px;
+            font-weight: 800; font-size: 1rem; cursor: pointer;
             transition: 0.3s;
         }
-        .metric-card:hover { border-left-color: var(--primary); background: rgba(0,255,65,0.05); }
-        .m-label { font-size: 0.7rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
-        .m-val { font-size: 1.4rem; color: #fff; font-weight: bold; margin-top: 5px; }
+        .scan-btn:hover { background: var(--neon-green); box-shadow: 0 0 20px var(--neon-green); }
 
-        /* --- HISTORY (RIGHT) --- */
-        #history-feed { overflow-y: auto; height: 100%; padding: 0; }
-        .hist-item {
-            padding: 15px;
-            border-bottom: 1px solid #222;
-            cursor: pointer;
-            display: flex; justify-content: space-between; align-items: center;
-            transition: 0.2s;
+        /* RESULTS HUD (FLOATING CARDS) */
+        .hud-panel {
+            position: absolute;
+            background: rgba(10,10,10,0.8);
+            border-left: 2px solid var(--neon-green);
+            backdrop-filter: blur(8px);
+            padding: 20px;
+            width: 250px;
+            pointer-events: auto;
+            opacity: 0; /* Hidden by default */
+            transition: 0.5s;
         }
-        .hist-item:hover { background: rgba(255,255,255,0.05); padding-left: 20px; }
-        .h-addr { font-size: 0.8rem; color: #aaa; font-family: var(--font-mono); }
-        .h-score { font-weight: bold; }
         
-        /* FOOTER */
-        .footer { grid-column: 1 / -1; display: flex; justify-content: space-between; font-size: 0.7rem; color: #444; align-items: center; text-transform: uppercase; border-top: 1px solid #222; padding-top: 10px; }
+        .hud-title { font-size: 0.7rem; color: #888; letter-spacing: 2px; margin-bottom: 5px; font-family: 'Share Tech Mono'; }
+        .hud-val { font-size: 1.8rem; font-weight: 700; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
+
+        /* POSITIONS */
+        #hud-score { top: 20%; right: 10%; text-align: right; border-left: none; border-right: 2px solid var(--neon-green); }
+        #hud-liq { top: 40%; left: 10%; }
+        #hud-mcap { bottom: 30%; right: 10%; text-align: right; border-left: none; border-right: 2px solid var(--neon-green); }
+        #hud-verdict { bottom: 10%; left: 50%; transform: translateX(-50%); width: auto; text-align: center; border: none; background: transparent; }
+        
+        #verdict-text { font-size: 4rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; text-shadow: 0 0 30px currentColor; }
+
+        /* LOADING TEXT */
+        #loading-text {
+            position: absolute; top: 60%; left: 50%; transform: translate(-50%, 0);
+            font-family: 'Share Tech Mono'; color: var(--neon-green); letter-spacing: 2px;
+            display: none;
+        }
 
         /* ANIMATIONS */
-        @keyframes pulse { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.7; } }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes floatUp { to { opacity: 1; transform: scale(1); } }
         
-        .scan-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,20,0,0.9); z-index: 10;
-            display: none;
-            flex-direction: column; justify-content: center; align-items: center;
+        /* FOOTER */
+        .footer { 
+            padding: 20px 50px; display: flex; justify-content: space-between; font-size: 0.8rem; color: #444; font-family: 'Share Tech Mono';
         }
-        .scan-bar { width: 300px; height: 4px; background: #333; margin-top: 20px; overflow: hidden; }
-        .scan-fill { width: 0%; height: 100%; background: var(--primary); box-shadow: 0 0 15px var(--primary); transition: width 0.1s; }
-        .console-text { font-family: monospace; color: var(--primary); margin-top: 10px; font-size: 0.9rem; }
-
     </style>
 </head>
 <body>
 
-    <div id="canvas-container"></div>
+    <canvas id="webgl"></canvas>
 
-    <div class="main-grid">
-        <div class="top-bar">
-            <div class="brand">
-                <img src="logo.png" alt="" class="logo-img">
-                <span>DEGEN_OS <span style="font-size:0.8rem; color:var(--primary); vertical-align:top;">v9.0</span></span>
-            </div>
+    <div id="ui-layer">
+        <header>
+            <div class="brand">DEGEN_AI // SYMBIOTE</div>
             <div class="nav">
                 <a href="index.html">CMD</a>
                 <a href="terminal.html">TERM</a>
                 <a href="data.html">DATA</a>
                 <a href="audit.html" class="active">AUDIT</a>
             </div>
-        </div>
+        </header>
 
-        <div class="tech-panel">
-            <div class="panel-title"><span>TARGET_INPUT</span><span>// SECURE</span></div>
-            <div class="input-zone">
-                <div style="text-align:center; margin-bottom:10px;">
-                    <div style="font-size:0.7rem; color:#aaa; margin-bottom:5px;">ENTER CONTRACT ADDRESS (CA)</div>
-                    <input type="text" id="ca-input" class="cyber-input" placeholder="e.g. 7A1R...pump">
-                </div>
-                
-                <button class="scan-btn" onclick="startScan()">INITIATE SCAN</button>
-                
-                <div class="status-list">
-                    <div><span>></span> DEXSCREENER API: <b style="color:#fff">ONLINE</b></div>
-                    <div><span>></span> LIQUIDITY CHECK: <b style="color:#fff">READY</b></div>
-                    <div><span>></span> RUG HEURISTICS: <b style="color:#fff">ACTIVE</b></div>
-                    <div><span>></span> DATABASE: <b style="color:#fff">SYNCED</b></div>
-                </div>
+        <div class="center-stage" id="input-section">
+            <h1 style="margin-bottom:20px; font-weight:300; letter-spacing:3px;">CONTRACT INTELLIGENCE</h1>
+            <div class="input-wrapper">
+                <input type="text" id="ca-input" placeholder="PASTE CA HERE...">
+                <button class="scan-btn" onclick="activateCore()">SCAN</button>
             </div>
         </div>
 
-        <div class="tech-panel display-zone" id="main-panel">
-            <div class="scan-overlay" id="scan-overlay">
-                <div style="font-size:2rem; font-weight:900; color:#fff; letter-spacing:5px;">SCANNING</div>
-                <div class="scan-bar"><div class="scan-fill" id="scan-fill"></div></div>
-                <div class="console-text" id="console-text">INITIALIZING...</div>
-            </div>
+        <div id="loading-text">INITIALIZING NEURAL LINK...</div>
 
-            <div id="idle-state">
-                <h2>WAITING<br>FOR TARGET</h2>
-                <div style="color:var(--primary); font-size:0.9rem; letter-spacing:2px;">// SYSTEM IDLE</div>
-            </div>
-
-            <div id="result-state">
-                <div class="gauge-container">
-                    <svg class="gauge-svg" viewBox="0 0 220 220">
-                        <circle class="gauge-bg" cx="110" cy="110" r="100"></circle>
-                        <circle class="gauge-progress" id="score-ring" cx="110" cy="110" r="100"></circle>
-                    </svg>
-                    <div class="score-display">
-                        <div class="big-score" id="score-val">0</div>
-                        <div class="score-label">TRUST SCORE</div>
-                    </div>
-                </div>
-
-                <div class="verdict-box" id="verdict-box" style="color:var(--primary)">SAFE</div>
-
-                <div class="metrics-grid">
-                    <div class="metric-card">
-                        <div class="m-label">LIQUIDITY (USD)</div>
-                        <div class="m-val" id="val-liq">---</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="m-label">MARKET CAP (FDV)</div>
-                        <div class="m-val" id="val-mcap">---</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="m-label">VOLATILITY (1H)</div>
-                        <div class="m-val" id="val-vol">---</div>
-                    </div>
-                    <div class="metric-card">
-                        <div class="m-label">MCAP / LIQ RATIO</div>
-                        <div class="m-val" id="val-ratio">---</div>
-                    </div>
-                </div>
-            </div>
+        <div id="hud-score" class="hud-panel">
+            <div class="hud-title">TRUST SCORE</div>
+            <div class="hud-val" id="val-score">0</div>
         </div>
 
-        <div class="tech-panel">
-            <div class="panel-title"><span>SCAN_ARCHIVE</span><span>// LOGS</span></div>
-            <div id="history-feed">
-                </div>
+        <div id="hud-liq" class="hud-panel">
+            <div class="hud-title">LIQUIDITY (USD)</div>
+            <div class="hud-val" id="val-liq">$0</div>
+        </div>
+
+        <div id="hud-mcap" class="hud-panel">
+            <div class="hud-title">MARKET CAP</div>
+            <div class="hud-val" id="val-mcap">$0</div>
+        </div>
+
+        <div id="hud-verdict" class="hud-panel">
+            <div id="verdict-text">---</div>
         </div>
 
         <div class="footer">
-            <div>SYSTEM STATUS: NORMAL</div>
-            <div>LOCATION: TOKYO_SERVER_04</div>
-            <div>SECURE CONNECTION</div>
+            <div>SYSTEM: ONLINE</div>
+            <div>V9.2.4 PRO</div>
         </div>
     </div>
 
-    <script>
-        /* --- AUDIO ENGINE (WEB AUDIO API) --- */
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-        function playRugWarning() {
-            // "Nuclear Siren" Sound Effect
-            if(audioCtx.state === 'suspended') audioCtx.resume();
-
-            const osc = audioCtx.createOscillator();
-            const gainNode = audioCtx.createGain();
-
-            osc.type = 'sawtooth'; // Harsh buzz
-            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
-            osc.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.5); // Drop pitch
-
-            gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
-            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.5);
-
-            osc.connect(gainNode);
-            gainNode.connect(audioCtx.destination);
-
-            osc.start();
-            osc.stop(audioCtx.currentTime + 0.5);
+    <script id="vertexShader" type="x-shader/x-vertex">
+        uniform float time;
+        uniform float spike;
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        
+        // Simplex Noise Function (Simplified)
+        vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+        vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+        vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+        float snoise(vec3 v) {
+            const vec2 C = vec2(1.0/6.0, 1.0/3.0);
+            const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+            vec3 i  = floor(v + dot(v, C.yyy) );
+            vec3 x0 = v - i + dot(i, C.xxx) ;
+            vec3 g = step(x0.yzx, x0.xyz);
+            vec3 l = 1.0 - g;
+            vec3 i1 = min( g.xyz, l.zxy );
+            vec3 i2 = max( g.xyz, l.zxy );
+            vec3 x1 = x0 - i1 + C.xxx;
+            vec3 x2 = x0 - i2 + C.yyy;
+            vec3 x3 = x0 - D.yyy;
+            i = mod289(i);
+            vec4 p = permute( permute( permute( i.z + vec4(0.0, i1.z, i2.z, 1.0 )) + i.y + vec4(0.0, i1.y, i2.y, 1.0 )) + i.x + vec4(0.0, i1.x, i2.x, 1.0 ));
+            float n_ = 0.142857142857;
+            vec3  ns = n_ * D.wyz - D.xzx;
+            vec4 j = p - 49.0 * floor(p * ns.z * ns.z);
+            vec4 x_ = floor(j * ns.z);
+            vec4 y_ = floor(j - 7.0 * x_ );
+            vec4 x = x_ *ns.x + ns.yyyy;
+            vec4 y = y_ *ns.x + ns.yyyy;
+            vec4 h = 1.0 - abs(x) - abs(y);
+            vec4 b0 = vec4( x.xy, y.xy );
+            vec4 b1 = vec4( x.zw, y.zw );
+            vec4 s0 = floor(b0)*2.0 + 1.0;
+            vec4 s1 = floor(b1)*2.0 + 1.0;
+            vec4 sh = -step(h, vec4(0.0));
+            vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ;
+            vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ;
+            vec3 p0 = vec3(a0.xy,h.x);
+            vec3 p1 = vec3(a0.zw,h.y);
+            vec3 p2 = vec3(a1.xy,h.z);
+            vec3 p3 = vec3(a1.zw,h.w);
+            vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+            p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+            vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+            m = m * m;
+            return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
         }
 
-        /* --- 3D BACKGROUND --- */
+        void main() {
+            vUv = uv;
+            vNormal = normal;
+            
+            // Noise based displacement
+            float noise = snoise(position * 2.0 + time * 0.5);
+            vec3 newPos = position + normal * noise * spike;
+            
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(newPos, 1.0);
+        }
+    </script>
+
+    <script id="fragmentShader" type="x-shader/x-fragment">
+        uniform vec3 color;
+        uniform float time;
+        varying vec3 vNormal;
+        
+        void main() {
+            // Simple Fresnel Glow
+            vec3 viewDir = vec3(0.0, 0.0, 1.0);
+            float fresnel = pow(1.0 - dot(vNormal, viewDir), 2.0);
+            
+            vec3 glow = color * fresnel * 2.5;
+            vec3 base = color * 0.2;
+            
+            gl_FragColor = vec4(base + glow, 1.0);
+        }
+    </script>
+
+    <script>
+        /* --- 3D ENGINE --- */
+        const canvas = document.querySelector('#webgl');
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ alpha: true });
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById('canvas-container').appendChild(renderer.domElement);
-        
-        // Wireframe Globe
-        const geometry = new THREE.IcosahedronGeometry(12, 2);
-        const material = new THREE.MeshBasicMaterial({ color: 0x004400, wireframe: true, transparent: true, opacity: 0.3 });
-        const sphere = new THREE.Mesh(geometry, material);
-        scene.add(sphere);
-        
-        // Floating Particles
-        const partGeo = new THREE.BufferGeometry();
-        const partCount = 500;
-        const posArray = new Float32Array(partCount * 3);
-        for(let i=0; i<partCount*3; i++) posArray[i] = (Math.random() - 0.5) * 50;
-        partGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
-        const partMat = new THREE.PointsMaterial({ size: 0.1, color: 0x00ff41 });
-        const particles = new THREE.Points(partGeo, partMat);
+        renderer.setPixelRatio(window.devicePixelRatio);
+
+        // THE SYMBIOTE CORE (Custom Shader Material)
+        const geometry = new THREE.IcosahedronGeometry(2, 64); // High detail sphere
+        const material = new THREE.ShaderMaterial({
+            vertexShader: document.getElementById('vertexShader').textContent,
+            fragmentShader: document.getElementById('fragmentShader').textContent,
+            uniforms: {
+                time: { value: 0.0 },
+                spike: { value: 0.1 }, // Smooth at start
+                color: { value: new THREE.Color(0.2, 0.2, 0.2) } // Dark Grey start
+            },
+            wireframe: true,
+            transparent: true
+        });
+
+        const core = new THREE.Mesh(geometry, material);
+        scene.add(core);
+
+        // PARTICLES
+        const pGeo = new THREE.BufferGeometry();
+        const pCount = 1000;
+        const pPos = new Float32Array(pCount * 3);
+        for(let i=0; i<pCount*3; i++) {
+            pPos[i] = (Math.random() - 0.5) * 20;
+        }
+        pGeo.setAttribute('position', new THREE.BufferAttribute(pPos, 3));
+        const pMat = new THREE.PointsMaterial({ size: 0.02, color: 0xffffff, opacity: 0.4, transparent:true });
+        const particles = new THREE.Points(pGeo, pMat);
         scene.add(particles);
 
-        camera.position.z = 20;
+        camera.position.z = 6;
+
+        /* --- ANIMATION LOOP --- */
+        const clock = new THREE.Clock();
+
         function animate() {
             requestAnimationFrame(animate);
-            sphere.rotation.y += 0.001;
-            sphere.rotation.x -= 0.0005;
-            particles.rotation.y -= 0.0005;
+            const t = clock.getElapsedTime();
+            
+            material.uniforms.time.value = t;
+            
+            core.rotation.y = t * 0.1;
+            particles.rotation.y = t * 0.05;
+
             renderer.render(scene, camera);
         }
         animate();
 
-        /* --- APP LOGIC --- */
-        document.addEventListener('DOMContentLoaded', () => {
-            loadHistory();
-            const last = localStorage.getItem('last_audit_ca');
-            if(last) document.getElementById('ca-input').value = last;
-        });
-
-        async function startScan() {
+        /* --- LOGIC & INTERACTION --- */
+        const uiInput = document.getElementById('input-section');
+        const uiLoading = document.getElementById('loading-text');
+        
+        async function activateCore() {
             const ca = document.getElementById('ca-input').value.trim();
             if(!ca) return;
-            localStorage.setItem('last_audit_ca', ca);
 
-            // 1. UI Reset & Animation Start
-            document.getElementById('idle-state').style.display = 'none';
-            document.getElementById('result-state').style.display = 'none';
-            document.getElementById('scan-overlay').style.display = 'flex';
-            document.getElementById('main-panel').classList.remove('rug-detected'); // Reset flash
+            // 1. ANIMATE UI OUT
+            gsap.to(uiInput, { opacity: 0, scale: 0.8, duration: 0.5, onComplete: () => uiInput.style.display = 'none' });
+            uiLoading.style.display = 'block';
             
-            // Fake Loading Steps
-            const steps = ["CONNECTING TO NODE...", "PARSING CONTRACT...", "CHECKING LP...", "CALCULATING RISK..."];
-            const bar = document.getElementById('scan-fill');
-            const txt = document.getElementById('console-text');
-
-            for(let i=0; i<=100; i+=5) {
-                bar.style.width = i + "%";
-                if(i % 25 === 0) txt.innerText = steps[Math.floor(i/25)] || "FINALIZING...";
-                await new Promise(r => setTimeout(r, 40)); 
-            }
+            // 2. CORE "WAKE UP" ANIMATION
+            // Turn bright white momentarily
+            gsap.to(material.uniforms.color.value, { r: 1, g: 1, b: 1, duration: 0.5 });
+            gsap.to(material.uniforms.spike, { value: 0.5, duration: 0.5, yoyo: true, repeat: 3 }); // Pulse spikes
 
             try {
-                // 2. Real API Fetch
+                // 3. FETCH DATA
                 const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`);
                 const data = await res.json();
-                
-                if(!data.pairs || data.pairs.length === 0) throw new Error("TOKEN NOT FOUND");
-                
+                if(!data.pairs) throw new Error("No data");
                 const pair = data.pairs[0];
-                const result = calculateScore(pair);
-                
-                showResult(pair, result);
-                addToHistory(ca, result);
-                
+
+                // 4. CALCULATE RISK
+                const result = calculateRisk(pair);
+
+                // 5. TRANSFORM CORE BASED ON RESULT
+                uiLoading.style.display = 'none';
+                displayResults(pair, result);
+
             } catch(e) {
-                alert("SCAN ERROR: " + e.message);
-                document.getElementById('scan-overlay').style.display = 'none';
-                document.getElementById('idle-state').style.display = 'block';
+                alert("Scan Failed. Try again.");
+                location.reload();
             }
         }
 
-        function calculateScore(pair) {
-            let liq = pair.liquidity?.usd || 0;
-            let fdv = pair.fdv || 0;
-            let score = 50; // Base
-
-            // Logic
-            if(liq > 100000) score += 20; else if(liq < 5000) score -= 40;
-            if(fdv > 500000) score += 10;
+        function calculateRisk(pair) {
+            let score = 50;
+            const liq = pair.liquidity?.usd || 0;
+            if(liq > 100000) score += 30;
+            else if(liq < 5000) score -= 40;
             
-            let ratio = fdv / (liq || 1);
-            if(ratio > 30) score -= 30; // Overvalued / Trap
+            score = Math.max(0, Math.min(100, score));
             
-            score = Math.max(5, Math.min(99, score));
-            
-            // Verdict
-            let verdict = "NEUTRAL";
-            let color = "#fcee0a"; // Yellow
-            
-            if(score >= 80) { verdict = "APE SAFE"; color = "#00ff41"; }
-            else if(score <= 40) { verdict = "RUG RISK"; color = "#ff003c"; }
-            
-            return { score, verdict, color, ratio };
+            let color, verdict, spikeVal;
+            if(score > 70) {
+                color = { r:0, g:1, b:0.2 }; // Neon Green
+                verdict = "SAFE";
+                spikeVal = 0.1; // Smooth
+            } else {
+                color = { r:1, g:0, b:0.2 }; // Neon Red
+                verdict = "RUG RISK";
+                spikeVal = 0.8; // Very Spiky/Jagged
+            }
+            return { score, color, verdict, spikeVal };
         }
 
-        function showResult(pair, res) {
-            document.getElementById('scan-overlay').style.display = 'none';
-            document.getElementById('result-state').style.display = 'flex';
+        function displayResults(pair, res) {
+            // Morph the Core
+            gsap.to(material.uniforms.color.value, { 
+                r: res.color.r, g: res.color.g, b: res.color.b, duration: 1.5 
+            });
+            gsap.to(material.uniforms.spike, { value: res.spikeVal, duration: 1.5 });
+            
+            // If Rug, shake the camera
+            if(res.verdict === "RUG RISK") {
+                gsap.to(camera.position, { x: 0.2, duration: 0.05, repeat: 10, yoyo: true });
+                playAlarm();
+            }
 
-            // Numbers
+            // Show HUD Elements
+            document.getElementById('val-score').innerText = res.score;
+            document.getElementById('val-score').style.color = res.verdict === "SAFE" ? "var(--neon-green)" : "var(--neon-red)";
+            
             document.getElementById('val-liq').innerText = "$" + pair.liquidity.usd.toLocaleString();
             document.getElementById('val-mcap').innerText = "$" + pair.fdv.toLocaleString();
-            document.getElementById('val-vol').innerText = pair.priceChange.h1 + "%";
-            document.getElementById('val-ratio').innerText = res.ratio.toFixed(1);
-
-            // Gauge Animation
-            const ring = document.getElementById('score-ring');
-            const val = document.getElementById('score-val');
-            const box = document.getElementById('verdict-box');
-            const panel = document.getElementById('main-panel');
             
-            // Reset Gauge
-            ring.style.strokeDashoffset = 630;
-            
-            // Animate
-            setTimeout(() => {
-                const offset = 630 - (630 * (res.score / 100));
-                ring.style.strokeDashoffset = offset;
-                ring.style.stroke = res.color;
-            }, 100);
+            const vText = document.getElementById('verdict-text');
+            vText.innerText = res.verdict;
+            vText.style.color = res.verdict === "SAFE" ? "var(--neon-green)" : "var(--neon-red)";
 
-            // Count Up
-            let c = 0;
-            const int = setInterval(() => {
-                c+=2;
-                if(c >= res.score) { c = res.score; clearInterval(int); }
-                val.innerText = c;
-            }, 20);
-
-            // Verdict
-            box.innerText = res.verdict;
-            box.style.color = res.color;
-            box.style.boxShadow = `0 0 30px ${res.color}`;
-            box.style.borderColor = res.color;
-
-            // --- ALARM TRIGGER ---
-            if(res.score <= 40) {
-                // Flash Screen
-                panel.classList.add('rug-detected');
-                // Play Alarm 3 times
-                playRugWarning();
-                setTimeout(playRugWarning, 800);
-                setTimeout(playRugWarning, 1600);
-            }
+            gsap.to('.hud-panel', { opacity: 1, duration: 0.5, stagger: 0.2 });
         }
 
-        /* --- HISTORY LOGIC --- */
-        function addToHistory(ca, res) {
-            let hist = JSON.parse(localStorage.getItem('audit_history') || '[]');
-            hist = hist.filter(h => h.ca !== ca); // Remove dupes
-            hist.unshift({ ca, score: res.score, color: res.color });
-            if(hist.length > 15) hist.pop();
-            localStorage.setItem('audit_history', JSON.stringify(hist));
-            loadHistory();
-        }
-
-        function loadHistory() {
-            const list = document.getElementById('history-feed');
-            const hist = JSON.parse(localStorage.getItem('audit_history') || '[]');
-            list.innerHTML = "";
-            
-            hist.forEach(h => {
-                const div = document.createElement('div');
-                div.className = 'hist-item';
-                div.innerHTML = `
-                    <span class="h-addr">${h.ca.slice(0,4)}...${h.ca.slice(-4)}</span>
-                    <span class="h-score" style="color:${h.color}">${h.score}</span>
-                `;
-                div.onclick = () => {
-                    document.getElementById('ca-input').value = h.ca;
-                    startScan();
-                };
-                list.appendChild(div);
-            });
+        /* --- AUDIO --- */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playAlarm() {
+            if(audioCtx.state === 'suspended') audioCtx.resume();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(50, audioCtx.currentTime + 1);
+            gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 1);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime+1);
         }
     </script>
 </body>
