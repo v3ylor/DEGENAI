@@ -90,12 +90,22 @@
         .hud-val { font-size: 1.2rem; font-weight: 700; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
         .hud-sub { font-size: 0.65rem; color: #666; margin-top: 3px; text-transform: uppercase; }
 
-        /* LAYOUT: 4 CORNERS */
+        /* LAYOUT */
         #hud-mint { top: 30%; left: 5%; border-left: 2px solid var(--neon-green); }
         #hud-freeze { top: 50%; left: 5%; border-left: 2px solid var(--neon-green); }
-        
         #hud-burn { top: 30%; right: 5%; text-align: right; border-right: 2px solid var(--neon-green); }
         #hud-top10 { top: 50%; right: 5%; text-align: right; border-right: 2px solid var(--neon-green); }
+
+        /* NEW: TARGET DISPLAY (CENTER TOP) */
+        #hud-target {
+            top: 15%; left: 50%; transform: translateX(-50%);
+            width: auto; min-width: 300px; text-align: center;
+            border: 1px solid var(--neon-green);
+            background: rgba(0, 20, 0, 0.8);
+        }
+        .target-symbol { font-size: 1.5rem; font-weight: 900; letter-spacing: 3px; color: var(--neon-green); }
+        .target-ca { font-family: 'Share Tech Mono'; font-size: 0.8rem; color: #aaa; margin-top: 5px; cursor: pointer; transition: 0.3s; }
+        .target-ca:hover { color: #fff; text-decoration: underline; }
 
         /* CENTER VERDICT */
         #hud-verdict { bottom: 25%; left: 50%; transform: translateX(-50%); text-align: center; width: auto; background: transparent; border: none; }
@@ -174,6 +184,12 @@
         </div>
 
         <div id="loading-text">CHECKING MINT AUTHORITY...</div>
+
+        <div id="hud-target" class="hud-panel">
+            <div class="hud-title">TARGET LOCKED</div>
+            <div class="target-symbol" id="val-symbol">---</div>
+            <div class="target-ca" id="val-ca" onclick="copyCA()">---</div>
+        </div>
 
         <div id="hud-mint" class="hud-panel">
             <div class="hud-title">MINT AUTHORITY</div>
@@ -342,10 +358,13 @@
             if(last) document.getElementById('ca-input').value = last;
         });
 
+        let currentCA = "";
+
         async function runGMGNScan() {
             const ca = document.getElementById('ca-input').value.trim();
             if(!ca) return;
             localStorage.setItem('last_audit_ca', ca);
+            currentCA = ca;
 
             gsap.to('#input-section', { opacity: 0, scale: 0.8, duration: 0.5, onComplete: () => document.getElementById('input-section').style.display = 'none' });
             document.getElementById('loading-text').style.display = 'block';
@@ -353,7 +372,7 @@
             gsap.to(material.uniforms.spike, { value: 0.5, duration: 0.5, yoyo: true, repeat: 3 });
 
             try {
-                // PARALLEL FETCH: GoPlus Security + DexScreener (Financials)
+                // PARALLEL FETCH: GoPlus + DexScreener
                 const [gpRes, dexRes] = await Promise.all([
                     fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${ca}`),
                     fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`)
@@ -363,7 +382,7 @@
                 const dexJson = await dexRes.json();
 
                 const secData = gpJson.result && gpJson.result[ca] ? gpJson.result[ca] : {};
-                const pairData = dexJson.pairs && dexJson.pairs.length > 0 ? dexJson.pairs[0] : { liquidity: { usd: 0 } };
+                const pairData = dexJson.pairs && dexJson.pairs.length > 0 ? dexJson.pairs[0] : { liquidity: { usd: 0 }, baseToken: { symbol: "UNK" } };
 
                 // --- GMGN CHECKS ---
                 
@@ -382,17 +401,15 @@
                     });
                 }
 
-                // 4. TOP 10 HOLDERS (Estimated via GoPlus owner concentration)
-                const top10Safe = secData.holder_count > 50; // Simple heuristic if we lack full list
+                // 4. TOP 10 HOLDERS
+                const top10Safe = secData.holder_count > 50; // Simple heuristic
 
                 // SCORING
                 let score = 100;
-                let reasons = [];
-
-                if(isMintable) { score -= 40; reasons.push("MINT ENABLED"); }
-                if(isFreezable) { score -= 30; reasons.push("FREEZE ENABLED"); }
-                if(!isBurned) { score -= 30; reasons.push("LP NOT BURNED"); }
-                if(pairData.liquidity.usd < 1000) { score = 0; reasons.push("NO LIQUIDITY"); }
+                if(isMintable) score -= 40;
+                if(isFreezable) score -= 30;
+                if(!isBurned) score -= 30;
+                if(pairData.liquidity.usd < 1000) score = 0;
 
                 score = Math.max(0, score);
 
@@ -404,11 +421,12 @@
                     burn: isBurned ? "100% BURNED" : "UNLOCKED/LOW",
                     top10: top10Safe ? "DISTRIBUTED" : "CONCENTRATED",
                     verdict: score > 80 ? "GMGN SAFE" : (score > 40 ? "CAUTION" : "RUG DETECTED"),
-                    sound: score <= 40
+                    sound: score <= 40,
+                    symbol: pairData.baseToken.symbol || "TOKEN"
                 };
 
                 document.getElementById('loading-text').style.display = 'none';
-                displayGMGNResults(result);
+                displayGMGNResults(result, ca);
                 saveToHistory(ca, result);
 
             } catch(e) {
@@ -418,18 +436,16 @@
             }
         }
 
-        function displayGMGNResults(res) {
-            // Morph Core Logic
-            let color = { r:0, g:1, b:0.2 }; // Green
+        function displayGMGNResults(res, ca) {
+            // Morph Core
+            let color = { r:0, g:1, b:0.2 };
             let spike = 0.1;
 
             if(res.score < 50) {
-                color = { r:1, g:0, b:0.2 }; // Red
-                spike = 0.9;
+                color = { r:1, g:0, b:0.2 }; spike = 0.9;
                 if(res.sound) playAlarm();
             } else if (res.score < 80) {
-                color = { r:1, g:0.8, b:0 }; // Yellow
-                spike = 0.4;
+                color = { r:1, g:0.8, b:0 }; spike = 0.4;
             }
 
             gsap.to(material.uniforms.color.value, { r: color.r, g: color.g, b: color.b, duration: 1.5 });
@@ -440,6 +456,11 @@
             updateHud('val-freeze', res.freeze, res.freeze.includes("SAFE"));
             updateHud('val-burn', res.burn, res.burn.includes("100%"));
             updateHud('val-top10', res.top10, res.top10 === "DISTRIBUTED");
+
+            // Update Target Display
+            document.getElementById('val-symbol').innerText = "$" + res.symbol;
+            document.getElementById('val-ca').innerText = ca;
+            document.getElementById('val-ca').style.color = `rgb(${color.r*255}, ${color.g*255}, ${color.b*255})`;
 
             const vText = document.getElementById('verdict-text');
             vText.innerText = res.verdict;
@@ -454,6 +475,11 @@
             const el = document.getElementById(id);
             el.innerText = text;
             el.style.color = isSafe ? "var(--neon-green)" : "var(--neon-red)";
+        }
+
+        function copyCA() {
+            navigator.clipboard.writeText(currentCA);
+            alert("COPIED: " + currentCA);
         }
 
         function resetScanner() {
@@ -472,7 +498,7 @@
             let hist = JSON.parse(localStorage.getItem('gmgn_hist') || '[]');
             hist = hist.filter(h => h.ca !== ca);
             let cssColor = res.score > 80 ? 'var(--neon-green)' : (res.score > 40 ? 'var(--neon-yellow)' : 'var(--neon-red)');
-            hist.unshift({ ca, score: res.score, verdict: res.verdict, color: cssColor });
+            hist.unshift({ ca, score: res.score, verdict: res.verdict, color: cssColor, symbol: res.symbol });
             if(hist.length > 20) hist.pop();
             localStorage.setItem('gmgn_hist', JSON.stringify(hist));
             loadHistory();
@@ -485,7 +511,7 @@
             hist.forEach(h => {
                 const div = document.createElement('div');
                 div.className = 'hist-item';
-                div.innerHTML = `<div><div class="hist-ca">${h.ca.slice(0,6)}...</div><div class="hist-verdict" style="color:${h.color}">${h.verdict}</div></div><div class="hist-score" style="color:${h.color}">${h.score}</div>`;
+                div.innerHTML = `<div><div class="hist-ca" style="color:#fff; font-weight:bold;">$${h.symbol || "UNK"}</div><div class="hist-ca">${h.ca.slice(0,6)}...</div><div class="hist-verdict" style="color:${h.color}">${h.verdict}</div></div><div class="hist-score" style="color:${h.color}">${h.score}</div>`;
                 div.onclick = () => { document.getElementById('ca-input').value = h.ca; toggleHistory(); runGMGNScan(); };
                 list.appendChild(div);
             });
