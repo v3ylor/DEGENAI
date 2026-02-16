@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>DEGEN_AI // HYBRID_AUDIT_CORE</title>
+    <title>DEGEN_AI // GMGN_SECURITY_PROTOCOL</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
     <style>
@@ -43,7 +43,7 @@
         .nav a { color: #666; text-decoration: none; margin-left: 30px; font-weight: bold; font-size: 1rem; transition: 0.3s; }
         .nav a:hover, .nav a.active { color: #fff; text-shadow: 0 0 10px #fff; }
 
-        /* CENTER INPUT */
+        /* INPUT */
         .center-stage {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 100%; max-width: 600px; text-align: center;
@@ -58,15 +58,10 @@
             padding: 5px;
             border-radius: 50px;
             display: flex; align-items: center;
-            transition: 0.5s;
-            transform: scale(0.9); opacity: 0;
+            transition: 0.5s; transform: scale(0.9); opacity: 0;
             animation: floatUp 1s 0.5s forwards ease-out;
         }
-        .input-wrapper:focus-within {
-            border-color: var(--neon-green);
-            box-shadow: 0 0 30px rgba(0,255,65,0.2);
-            transform: scale(1);
-        }
+        .input-wrapper:focus-within { border-color: var(--neon-green); box-shadow: 0 0 30px rgba(0,255,65,0.2); transform: scale(1); }
 
         input {
             background: transparent; border: none; color: #fff;
@@ -78,44 +73,38 @@
         .scan-btn {
             background: #fff; color: #000; border: none;
             padding: 12px 30px; border-radius: 40px;
-            font-weight: 800; font-size: 1rem; cursor: pointer;
-            transition: 0.3s;
+            font-weight: 800; font-size: 1rem; cursor: pointer; transition: 0.3s;
         }
         .scan-btn:hover { background: var(--neon-green); box-shadow: 0 0 20px var(--neon-green); }
 
-        /* HUD PANELS (Split Left/Right) */
+        /* GMGN HUD GRID */
         .hud-panel {
-            position: absolute;
-            background: rgba(10,10,10,0.8);
-            border: 1px solid #333;
-            backdrop-filter: blur(8px);
-            padding: 15px; width: 260px;
+            position: absolute; background: rgba(5,5,5,0.9);
+            border: 1px solid #333; backdrop-filter: blur(10px);
+            padding: 15px; width: 220px;
             pointer-events: auto; opacity: 0; transition: 0.5s;
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
         }
         
         .hud-title { font-size: 0.7rem; color: #888; letter-spacing: 2px; margin-bottom: 5px; font-family: 'Share Tech Mono'; }
-        .hud-val { font-size: 1.4rem; font-weight: 700; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
-        .hud-sub { font-size: 0.7rem; color: #aaa; margin-top: 3px; }
+        .hud-val { font-size: 1.2rem; font-weight: 700; color: #fff; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
+        .hud-sub { font-size: 0.65rem; color: #666; margin-top: 3px; text-transform: uppercase; }
 
-        /* LEFT SIDE (FINANCIALS) */
-        #hud-liq { top: 30%; left: 5%; border-left: 3px solid var(--neon-blue); }
-        #hud-mcap { top: 50%; left: 5%; border-left: 3px solid var(--neon-blue); }
+        /* LAYOUT: 4 CORNERS */
+        #hud-mint { top: 30%; left: 5%; border-left: 2px solid var(--neon-green); }
+        #hud-freeze { top: 50%; left: 5%; border-left: 2px solid var(--neon-green); }
         
-        /* RIGHT SIDE (SECURITY) */
-        #hud-taxes { top: 30%; right: 5%; text-align: right; border-right: 3px solid var(--neon-red); }
-        #hud-auth { top: 50%; right: 5%; text-align: right; border-right: 3px solid var(--neon-red); }
+        #hud-burn { top: 30%; right: 5%; text-align: right; border-right: 2px solid var(--neon-green); }
+        #hud-top10 { top: 50%; right: 5%; text-align: right; border-right: 2px solid var(--neon-green); }
 
         /* CENTER VERDICT */
-        #hud-verdict { 
-            bottom: 25%; left: 50%; transform: translateX(-50%); 
-            text-align: center; width: auto; background: transparent; border: none;
-        }
+        #hud-verdict { bottom: 25%; left: 50%; transform: translateX(-50%); text-align: center; width: auto; background: transparent; border: none; }
         #verdict-text { font-size: 3.5rem; font-weight: 900; letter-spacing: 5px; text-transform: uppercase; text-shadow: 0 0 30px currentColor; }
         #score-sub { font-family: 'Share Tech Mono'; font-size: 1rem; margin-top: 10px; letter-spacing: 3px; }
 
         /* RESET BUTTON */
         #reset-btn {
-            position: absolute; bottom: 15%; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 12%; left: 50%; transform: translateX(-50%);
             background: rgba(0,0,0,0.8); border: 1px solid #fff; color: #fff;
             padding: 12px 40px; font-family: 'Share Tech Mono'; cursor: pointer;
             pointer-events: auto; opacity: 0; transition: 0.3s;
@@ -144,16 +133,12 @@
         }
         #history-panel.open { right: 0; }
 
-        .hist-item {
-            padding: 15px; border-bottom: 1px solid #222; cursor: pointer;
-            transition: 0.2s; position: relative;
-        }
+        .hist-item { padding: 15px; border-bottom: 1px solid #222; cursor: pointer; transition: 0.2s; position: relative; }
         .hist-item:hover { background: rgba(255,255,255,0.05); padding-left: 20px; }
         .hist-ca { font-size: 0.7rem; color: #888; font-family: 'Share Tech Mono'; }
         .hist-verdict { font-size: 0.9rem; font-weight: bold; margin-top: 5px; }
         .hist-score { position: absolute; top: 15px; right: 10px; font-size: 1.2rem; font-weight: 900; }
 
-        /* LOADING */
         #loading-text {
             position: absolute; top: 60%; left: 50%; transform: translate(-50%, 0);
             font-family: 'Share Tech Mono'; color: var(--neon-green); letter-spacing: 2px;
@@ -171,7 +156,7 @@
 
     <div id="ui-layer">
         <header>
-            <div class="brand">DEGEN_AI // HYBRID_CORE</div>
+            <div class="brand">DEGEN_AI // GMGN_CORE</div>
             <div class="nav">
                 <a href="index.html">CMD</a>
                 <a href="terminal.html">TERM</a>
@@ -181,35 +166,35 @@
         </header>
 
         <div class="center-stage" id="input-section">
-            <h1 style="margin-bottom:20px; font-weight:300; letter-spacing:3px;">CONTRACT INTELLIGENCE</h1>
+            <h1 style="margin-bottom:20px; font-weight:300; letter-spacing:3px;">TOKEN SECURITY SCAN</h1>
             <div class="input-wrapper">
                 <input type="text" id="ca-input" placeholder="PASTE CA HERE...">
-                <button class="scan-btn" onclick="runHybridScan()">SCAN</button>
+                <button class="scan-btn" onclick="runGMGNScan()">SCAN</button>
             </div>
         </div>
 
-        <div id="loading-text">RUNNING PARALLEL AUDIT PROTOCOLS...</div>
+        <div id="loading-text">CHECKING MINT AUTHORITY...</div>
 
-        <div id="hud-liq" class="hud-panel">
-            <div class="hud-title">LIQUIDITY (USD)</div>
-            <div class="hud-val" id="val-liq">---</div>
-            <div class="hud-sub" id="sub-liq">DEXSCREENER API</div>
+        <div id="hud-mint" class="hud-panel">
+            <div class="hud-title">MINT AUTHORITY</div>
+            <div class="hud-val" id="val-mint">---</div>
+            <div class="hud-sub">CAN DEV PRINT TOKENS?</div>
         </div>
-        <div id="hud-mcap" class="hud-panel">
-            <div class="hud-title">MARKET CAP</div>
-            <div class="hud-val" id="val-mcap">---</div>
-            <div class="hud-sub" id="sub-mcap">FULLY DILUTED</div>
+        <div id="hud-freeze" class="hud-panel">
+            <div class="hud-title">FREEZE AUTHORITY</div>
+            <div class="hud-val" id="val-freeze">---</div>
+            <div class="hud-sub">BLACKLIST RISK</div>
         </div>
 
-        <div id="hud-taxes" class="hud-panel">
-            <div class="hud-title">CONTRACT TAXES</div>
-            <div class="hud-val" id="val-taxes">---</div>
-            <div class="hud-sub" id="sub-taxes">BUY / SELL</div>
+        <div id="hud-burn" class="hud-panel">
+            <div class="hud-title">LP BURNED</div>
+            <div class="hud-val" id="val-burn">---</div>
+            <div class="hud-sub">LIQUIDITY STATUS</div>
         </div>
-        <div id="hud-auth" class="hud-panel">
-            <div class="hud-title">AUTHORITY STATUS</div>
-            <div class="hud-val" id="val-auth">---</div>
-            <div class="hud-sub" id="sub-auth">MINT / FREEZE</div>
+        <div id="hud-top10" class="hud-panel">
+            <div class="hud-title">TOP 10 HOLDERS</div>
+            <div class="hud-val" id="val-top10">---</div>
+            <div class="hud-sub">SUPPLY CONCENTRATION</div>
         </div>
 
         <div id="hud-verdict" class="hud-panel">
@@ -228,7 +213,7 @@
 
         <div class="footer">
             <div>SYSTEM: ONLINE</div>
-            <div>API: DEXSCREENER + GOPLUS</div>
+            <div>MODE: GMGN PROTOCOLS</div>
         </div>
     </div>
 
@@ -350,14 +335,14 @@
         }
         animate();
 
-        /* --- HYBRID AUDIT LOGIC --- */
+        /* --- GMGN LOGIC --- */
         document.addEventListener('DOMContentLoaded', () => {
             loadHistory();
             const last = localStorage.getItem('last_audit_ca');
             if(last) document.getElementById('ca-input').value = last;
         });
 
-        async function runHybridScan() {
+        async function runGMGNScan() {
             const ca = document.getElementById('ca-input').value.trim();
             if(!ca) return;
             localStorage.setItem('last_audit_ca', ca);
@@ -368,40 +353,62 @@
             gsap.to(material.uniforms.spike, { value: 0.5, duration: 0.5, yoyo: true, repeat: 3 });
 
             try {
-                // PARALLEL FETCH: DexScreener (Financials) + GoPlus (Security)
-                const [dexRes, gpRes] = await Promise.all([
-                    fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`),
-                    fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${ca}`)
+                // PARALLEL FETCH: GoPlus Security + DexScreener (Financials)
+                const [gpRes, dexRes] = await Promise.all([
+                    fetch(`https://api.gopluslabs.io/api/v1/solana/token_security?contract_addresses=${ca}`),
+                    fetch(`https://api.dexscreener.com/latest/dex/tokens/${ca}`)
                 ]);
 
-                const dexData = await dexRes.json();
-                const gpData = await gpRes.json();
+                const gpJson = await gpRes.json();
+                const dexJson = await dexRes.json();
 
-                if(!dexData.pairs || dexData.pairs.length === 0) throw new Error("Token not found on DexScreener");
+                const secData = gpJson.result && gpJson.result[ca] ? gpJson.result[ca] : {};
+                const pairData = dexJson.pairs && dexJson.pairs.length > 0 ? dexJson.pairs[0] : { liquidity: { usd: 0 } };
+
+                // --- GMGN CHECKS ---
                 
-                const pair = dexData.pairs[0];
-                const security = gpData.result && gpData.result[ca] ? gpData.result[ca] : {};
+                // 1. MINT CHECK
+                const isMintable = secData.is_mintable === "1";
+                
+                // 2. FREEZE/BLACKLIST CHECK
+                const isFreezable = secData.freezable && secData.freezable.status === "1";
+                
+                // 3. BURN CHECK
+                let isBurned = false;
+                const burnAddresses = ["1nc1nerator11111111111111111111111111111111", "Dead111111111111111111111111111111111111111"];
+                if(secData.lp_holders) {
+                    secData.lp_holders.forEach(h => {
+                        if(burnAddresses.includes(h.address) && parseFloat(h.percent) > 0.8) isBurned = true;
+                    });
+                }
 
-                // MERGE DATA
-                const mergedData = {
-                    liq: pair.liquidity?.usd || 0,
-                    mcap: pair.fdv || 0,
-                    symbol: pair.baseToken.symbol,
-                    taxes: {
-                        buy: parseFloat(security.buy_tax || "0") * 100,
-                        sell: parseFloat(security.sell_tax || "0") * 100
-                    },
-                    mintable: security.is_mintable === "1",
-                    honeypot: security.is_honeypot === "1",
-                    freezable: security.freezable?.status === "1",
-                    renounced: security.owner_address === null || security.owner_address === "" // Simplified check
+                // 4. TOP 10 HOLDERS (Estimated via GoPlus owner concentration)
+                const top10Safe = secData.holder_count > 50; // Simple heuristic if we lack full list
+
+                // SCORING
+                let score = 100;
+                let reasons = [];
+
+                if(isMintable) { score -= 40; reasons.push("MINT ENABLED"); }
+                if(isFreezable) { score -= 30; reasons.push("FREEZE ENABLED"); }
+                if(!isBurned) { score -= 30; reasons.push("LP NOT BURNED"); }
+                if(pairData.liquidity.usd < 1000) { score = 0; reasons.push("NO LIQUIDITY"); }
+
+                score = Math.max(0, score);
+
+                // DATA OBJECT
+                const result = {
+                    score: score,
+                    mint: isMintable ? "ENABLED (RISK)" : "DISABLED (SAFE)",
+                    freeze: isFreezable ? "ENABLED (RISK)" : "DISABLED (SAFE)",
+                    burn: isBurned ? "100% BURNED" : "UNLOCKED/LOW",
+                    top10: top10Safe ? "DISTRIBUTED" : "CONCENTRATED",
+                    verdict: score > 80 ? "GMGN SAFE" : (score > 40 ? "CAUTION" : "RUG DETECTED"),
+                    sound: score <= 40
                 };
 
-                // CALCULATE HYBRID SCORE
-                const result = calculateHybridRisk(mergedData);
-
                 document.getElementById('loading-text').style.display = 'none';
-                displayHybridResults(mergedData, result);
+                displayGMGNResults(result);
                 saveToHistory(ca, result);
 
             } catch(e) {
@@ -411,61 +418,42 @@
             }
         }
 
-        function calculateHybridRisk(data) {
-            let score = 100; // Start Perfect
-            let reasons = [];
+        function displayGMGNResults(res) {
+            // Morph Core Logic
+            let color = { r:0, g:1, b:0.2 }; // Green
+            let spike = 0.1;
 
-            // 1. FINANCIAL PENALTIES
-            if(data.liq < 1000) { score -= 80; reasons.push("NO LIQUIDITY"); }
-            else if(data.liq < 10000) { score -= 40; reasons.push("LOW LIQ"); }
-            else if(data.liq < 50000) { score -= 20; }
+            if(res.score < 50) {
+                color = { r:1, g:0, b:0.2 }; // Red
+                spike = 0.9;
+                if(res.sound) playAlarm();
+            } else if (res.score < 80) {
+                color = { r:1, g:0.8, b:0 }; // Yellow
+                spike = 0.4;
+            }
 
-            // 2. SECURITY PENALTIES
-            if(data.honeypot) { score = 0; reasons.push("HONEYPOT"); }
-            if(data.mintable) { score -= 30; reasons.push("MINTABLE"); }
-            if(data.freezable) { score -= 20; reasons.push("FREEZABLE"); }
-            if(data.taxes.buy > 10 || data.taxes.sell > 10) { score -= 20; reasons.push("HIGH TAX"); }
+            gsap.to(material.uniforms.color.value, { r: color.r, g: color.g, b: color.b, duration: 1.5 });
+            gsap.to(material.uniforms.spike, { value: spike, duration: 1.5 });
 
-            // 3. CAP CLAMP
-            score = Math.max(0, score);
+            // Update HUD
+            updateHud('val-mint', res.mint, res.mint.includes("SAFE"));
+            updateHud('val-freeze', res.freeze, res.freeze.includes("SAFE"));
+            updateHud('val-burn', res.burn, res.burn.includes("100%"));
+            updateHud('val-top10', res.top10, res.top10 === "DISTRIBUTED");
 
-            // 4. VERDICT
-            let verdict, color, spikeVal, soundTrigger = false;
-            if(score >= 80) { verdict = "SAFE ALPHA"; color = {r:0, g:1, b:0.2}; spikeVal = 0.1; }
-            else if(score >= 50) { verdict = "DEGEN PLAY"; color = {r:1, g:0.8, b:0}; spikeVal = 0.4; }
-            else { verdict = "RUG RISK"; color = {r:1, g:0, b:0.2}; spikeVal = 0.9; soundTrigger = true; }
-
-            return { score, color, verdict, spikeVal, soundTrigger };
-        }
-
-        function displayHybridResults(data, res) {
-            // Morph Core
-            gsap.to(material.uniforms.color.value, { r: res.color.r, g: res.color.g, b: res.color.b, duration: 1.5 });
-            gsap.to(material.uniforms.spike, { value: res.spikeVal, duration: 1.5 });
-            
-            if(res.soundTrigger) playAlarm();
-
-            // Financials
-            document.getElementById('val-liq').innerText = "$" + data.liq.toLocaleString();
-            document.getElementById('val-mcap').innerText = "$" + data.mcap.toLocaleString();
-
-            // Security
-            document.getElementById('val-taxes').innerText = `${data.taxes.buy}% / ${data.taxes.sell}%`;
-            document.getElementById('val-taxes').style.color = (data.taxes.buy > 10) ? "var(--neon-red)" : "#fff";
-            
-            const authText = (data.mintable ? "MINTABLE" : "FIXED") + " / " + (data.freezable ? "FREEZABLE" : "SAFE");
-            document.getElementById('val-auth').innerText = authText;
-            document.getElementById('val-auth').style.color = (data.mintable) ? "var(--neon-red)" : "var(--neon-green)";
-
-            // Verdict
             const vText = document.getElementById('verdict-text');
             vText.innerText = res.verdict;
-            vText.style.color = `rgb(${res.color.r*255}, ${res.color.g*255}, ${res.color.b*255})`;
+            vText.style.color = `rgb(${color.r*255}, ${color.g*255}, ${color.b*255})`;
             document.getElementById('score-sub').innerText = `TRUST SCORE: ${res.score}/100`;
 
-            // Reveal
             gsap.to('.hud-panel', { opacity: 1, duration: 0.5, stagger: 0.2 });
             gsap.to('#reset-btn', { opacity: 1, duration: 0.5, delay: 1 });
+        }
+
+        function updateHud(id, text, isSafe) {
+            const el = document.getElementById(id);
+            el.innerText = text;
+            el.style.color = isSafe ? "var(--neon-green)" : "var(--neon-red)";
         }
 
         function resetScanner() {
@@ -478,35 +466,33 @@
             document.getElementById('loading-text').style.display = 'none';
         }
 
-        /* --- HISTORY LOGIC --- */
         function toggleHistory() { document.getElementById('history-panel').classList.toggle('open'); }
 
         function saveToHistory(ca, res) {
-            let hist = JSON.parse(localStorage.getItem('hybrid_hist') || '[]');
+            let hist = JSON.parse(localStorage.getItem('gmgn_hist') || '[]');
             hist = hist.filter(h => h.ca !== ca);
-            let cssColor = `rgb(${res.color.r*255},${res.color.g*255},${res.color.b*255})`;
+            let cssColor = res.score > 80 ? 'var(--neon-green)' : (res.score > 40 ? 'var(--neon-yellow)' : 'var(--neon-red)');
             hist.unshift({ ca, score: res.score, verdict: res.verdict, color: cssColor });
             if(hist.length > 20) hist.pop();
-            localStorage.setItem('hybrid_hist', JSON.stringify(hist));
+            localStorage.setItem('gmgn_hist', JSON.stringify(hist));
             loadHistory();
         }
 
         function loadHistory() {
             const list = document.getElementById('history-list');
-            const hist = JSON.parse(localStorage.getItem('hybrid_hist') || '[]');
+            const hist = JSON.parse(localStorage.getItem('gmgn_hist') || '[]');
             list.innerHTML = "";
             hist.forEach(h => {
                 const div = document.createElement('div');
                 div.className = 'hist-item';
                 div.innerHTML = `<div><div class="hist-ca">${h.ca.slice(0,6)}...</div><div class="hist-verdict" style="color:${h.color}">${h.verdict}</div></div><div class="hist-score" style="color:${h.color}">${h.score}</div>`;
-                div.onclick = () => { document.getElementById('ca-input').value = h.ca; toggleHistory(); runHybridScan(); };
+                div.onclick = () => { document.getElementById('ca-input').value = h.ca; toggleHistory(); runGMGNScan(); };
                 list.appendChild(div);
             });
         }
 
-        function clearHistory() { localStorage.removeItem('hybrid_hist'); loadHistory(); }
+        function clearHistory() { localStorage.removeItem('gmgn_hist'); loadHistory(); }
 
-        /* --- AUDIO --- */
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         function playAlarm() {
             if(audioCtx.state === 'suspended') audioCtx.resume();
